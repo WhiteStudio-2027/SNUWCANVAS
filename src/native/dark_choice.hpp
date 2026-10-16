@@ -8,6 +8,12 @@ inline void drawDarkChoice(HDC dc,RECT rect,const std::wstring& text,HFONT font,
  auto oldFont=SelectObject(dc,font);SetBkMode(dc,TRANSPARENT);SetTextColor(dc,RGB(229,229,231));RECT label=rect;int height=rect.bottom-rect.top;label.left+=std::max(8,height/3);label.right-=height;DrawTextW(dc,text.c_str(),int(text.size()),&label,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS|DT_NOPREFIX);SelectObject(dc,oldFont);
  int x=rect.right-height/2,y=(rect.top+rect.bottom)/2;auto arrow=CreatePen(PS_SOLID,2,RGB(162,162,174));oldPen=SelectObject(dc,arrow);MoveToEx(dc,x-4,y-2,nullptr);LineTo(dc,x,y+2);LineTo(dc,x+4,y-2);SelectObject(dc,oldPen);DeleteObject(arrow);
 }
+// Editable choices may select their whole label again on WM_SETTEXT/focus.
+inline LRESULT CALLBACK editableChoiceProc(HWND h,UINT m,WPARAM a,LPARAM b,UINT_PTR id,DWORD_PTR){
+ if(m==WM_SETTEXT||m==WM_SETFOCUS||m==CB_SETCURSEL){auto result=DefSubclassProc(h,m,a,b);SendMessageW(h,CB_SETEDITSEL,0,MAKELPARAM(-1,0));return result;}
+ if(m==WM_NCDESTROY)RemoveWindowSubclass(h,editableChoiceProc,id);
+ return DefSubclassProc(h,m,a,b);
+}
 inline LRESULT CALLBACK darkChoiceProc(HWND h,UINT m,WPARAM a,LPARAM b,UINT_PTR id,DWORD_PTR){
  if(m==WM_ERASEBKGND)return 1;
  if(m==WM_NCPAINT)return 0;

@@ -56,3 +56,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_native.ps1 -Publ
 `-Publish`는 dist 안의 고정 이름 EXE/ZIP을 덮어씁니다. 기존 설치에 적용하려면 `-InstallDir "기존 설치 폴더"`를 함께 지정합니다.
 각 생성 작업은 기본 2시간의 전체 제한 시간이 있으며 설정 JSON의 `job_timeout_seconds`로 조절할 수 있습니다.
 중지 시 로컬 대기열과 통신을 취소하고 서버 취소 확인 결과를 표시합니다. 서버 연결이 끊기면 원격 중지는 확인할 수 없습니다.
+
+## 상태 알림과 다운로드 변경
+
+클라이언트는 /jobs/{id}/events 연결 하나로 상태 변경 알림을 받으며 상태 GET을 반복하지 않습니다.
+서버와 클라이언트를 함께 업데이트해야 합니다. 연결이 끊기면 오류를 표시하고 자동 반복 조회는 하지 않습니다.
+서버는 출력 경로가 ComfyUI와 다르면 소유권을 확인한 작업 결과를 ComfyUI /view에서 가져옵니다.

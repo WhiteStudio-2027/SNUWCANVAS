@@ -40,10 +40,12 @@ def main():
                     self.send({'id':'editing-test'})
                 else:raise AssertionError(self.path)
             except Exception as exc:errors.append(str(exc));self.send_error(500)
+        def stream(self,value):self.send((json.dumps(value)+"\n").encode(),"application/x-ndjson")
         def do_GET(self):
+            calls.append(self.path)
             if self.headers.get('X-API-Key')!='native-test-key':errors.append('missing key')
-            if self.path=='/jobs/generation-test':self.send({'state':'completed','completed':2,'count':2,'results':[{'image_url':'/images/1','seed':1},{'image_url':'/images/2','seed':2}]})
-            elif self.path=='/sessions/edit-session/jobs/editing-test':self.send({'state':'completed','completed':1,'count':1,'results':[{'image_url':'/images/edit','version':1}]})
+            if self.path=='/jobs/generation-test/events':self.stream({'state':'completed','completed':2,'count':2,'results':[{'image_url':'/images/1','seed':1},{'image_url':'/images/2','seed':2}]})
+            elif self.path=='/jobs/editing-test/events':self.stream({'state':'completed','completed':1,'count':1,'results':[{'image_url':'/images/edit','version':1}]})
             elif self.path=='/sessions/edit-session/history':self.send({'current_version':1,'versions':[{'version':1,'parent':0,'image_url':'/images/edit'}]})
             elif self.path.startswith('/images/'):self.send(png.getvalue(),'image/png')
             else:self.send_error(404)
@@ -56,6 +58,9 @@ def main():
             report=json.loads((path/'native-api-result.json').read_text(encoding='utf-8'))
             assert result.returncode==0 and report['ok'],report
             assert not errors,errors
+            assert calls.count('/jobs/generation-test/events')==1,calls
+            assert calls.count('/jobs/editing-test/events')==1,calls
+            assert '/jobs/generation-test' not in calls,calls
             images=list((path/'generated').glob('*.png'));assert len(images)==3,images
             for image in images:
                 with Image.open(image) as data:assert data.size==(32,48)

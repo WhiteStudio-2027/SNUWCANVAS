@@ -35,7 +35,7 @@ struct AsyncTransfer {
  ~AsyncTransfer(){if(handle){WinHttpCloseHandle(handle);if(armed){std::unique_lock lock(mutex);cv.wait(lock,[&]{return closed;});}}}
  operator HINTERNET()const{return handle;}
 };
-inline Response request(const std::string& method,const std::string& url,const std::string& key="",const std::string& body="",const std::string& content="application/json",const std::atomic_bool* stop=nullptr,size_t limit=256*1024*1024,int timeoutMs=30000){
+inline Response request(const std::string& method,const std::string& url,const std::string& key="",const std::string& body="",const std::string& content="application/json",const std::atomic_bool* stop=nullptr,size_t limit=256*1024*1024,int timeoutMs=30000,std::function<void(const std::string&)> onChunk={}){
  if(!stop)stop=networkStop;auto deadline=std::min(networkDeadline,std::chrono::steady_clock::now()+std::chrono::milliseconds(timeoutMs));
  Url u(url);if(key.find_first_of("\r\n")!=std::string::npos)throw std::runtime_error("비밀키에 줄바꿈이 있습니다.");
  Internet session(WinHttpOpen(L"SNUWCANVAS/Native",WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,WINHTTP_FLAG_ASYNC));if(!session.h)throw std::runtime_error("네트워크 초기화 실패");WinHttpSetTimeouts(session,10000,10000,30000,30000);
@@ -45,7 +45,7 @@ inline Response request(const std::string& method,const std::string& url,const s
  req.operation([&]{return WinHttpReceiveResponse(req,nullptr);},stop,deadline);
  Response out;DWORD n=sizeof out.code;WinHttpQueryHeaders(req,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,WINHTTP_HEADER_NAME_BY_INDEX,&out.code,&n,WINHTTP_NO_HEADER_INDEX);
  wchar_t retry[32];n=sizeof retry;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_RETRY_AFTER,nullptr,retry,&n,nullptr))out.retry=utf8(retry);
- for(;;){auto got=req.operation([&]{return WinHttpReadData(req,req.buffer,sizeof req.buffer,nullptr);},stop,deadline);if(!got)break;if(out.data.size()+got>limit)throw std::runtime_error("서버 응답 크기 제한 초과");out.data.append(req.buffer,got);}
+ for(;;){auto got=req.operation([&]{return WinHttpReadData(req,req.buffer,sizeof req.buffer,nullptr);},stop,deadline);if(!got)break;if(out.data.size()+got>limit)throw std::runtime_error("서버 응답 크기 제한 초과");if(onChunk&&out.code<300)onChunk(std::string(req.buffer,got));else out.data.append(req.buffer,got);}
  if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==429)return out;throw std::runtime_error("HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason));}return out;
 }
 
@@ -76,15 +76,20 @@ public:
   if(t.editing){if(session.empty()){Multipart upload;upload.file("image",wide(str(t.cfg,"editing_image")),20*1024*1024);session=str(request("POST",joinUrl(base,"/sessions"),key,upload.finish(),upload.type(),&cancel).object(),"session_id");event({"settings",t.project,"",{{"editing_session",session}}});}if(!pending.empty())initial={{"id",pending}};else{json seed=nullptr;if(str(t.cfg,"seed")!="-1")seed=std::stoll(str(t.cfg,"seed"));initial=request("POST",joinUrl(base,"/sessions/"+session+"/edit?background=true"),key,json{{"text",str(t.cfg,"editing_instruction")},{"request_id",t.requestId},{"seed",seed}}.dump(),"application/json",nullptr).object();}}
   else {auto form=generationForm(t.cfg,t.state,t.requestId);initial=request("POST",joinUrl(base,"/jobs"),key,form.finish(),form.type(),nullptr).object();}
   auto jid=str(initial,"id");if(jid.empty())throw std::runtime_error("서버가 작업 ID를 반환하지 않았습니다.");{std::lock_guard lock(mutex);jobId=jid;jobApi=base;jobKey=key;}if(t.editing)event({"settings",t.project,"",{{"editing_session",session},{"editing_job",jid},{"editing_request",t.requestId}}});
-  std::string url=joinUrl(base,t.editing?"/sessions/"+session+"/jobs/"+jid:"/jobs/"+jid);size_t received=0;
-  while(true){if(cancel||stopping)return;if(std::chrono::steady_clock::now()>=networkDeadline)throw std::runtime_error("작업 제한 시간 초과");Response r;try{r=request("GET",url,key);}catch(const std::exception& e){if(t.editing&&std::string(e.what()).find("HTTP 404")!=std::string::npos){auto history=request("GET",joinUrl(base,"/sessions/"+session+"/history"),key).object();for(auto& row:history["versions"])if(row["version"]==history["current_version"]){download(t,row,"edit_");event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});return;}}throw;}
-   if(r.code==429){int delay=10;try{delay=std::stoi(r.retry);}catch(...){}wait(std::clamp(delay,1,60)*1000);continue;}
-   auto j=r.object();auto status=str(j,"state");int total=j.value("count",1),done=j.value("completed",0);event({"progress",t.project,status,j});auto results=j.value("results",json::array());
-   if(!t.editing)for(size_t i=received;i<results.size();++i){download(t,results[i],str(t.cfg,"version","v9")+"_");received++;}
-   if(status=="completed"){if(t.editing&&!results.empty()){download(t,results.back(),"edit_");event({"history_ready",t.project,session,request("GET",joinUrl(base,"/sessions/"+session+"/history"),key).object()});event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});}return;}
-   if(status!="queued"&&status!="running"&&status!="failed"&&status!="cancelled")throw std::runtime_error("알 수 없는 서버 작업 상태: "+status);
-   if(status=="failed"||status=="cancelled"){if(t.editing)event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});throw std::runtime_error(str(j,"error","서버 작업 중단"));}wait(t.editing?10000:1000);
-  }
+  size_t received=0;bool terminal=false;std::string pendingLine;
+  auto consume=[&](const std::string& bytes){pendingLine+=bytes;if(pendingLine.size()>16*1024*1024)throw std::runtime_error("상태 응답 크기 제한 초과");size_t end;
+   while((end=pendingLine.find('\n'))!=std::string::npos){auto line=pendingLine.substr(0,end);pendingLine.erase(0,end+1);if(line.empty()||line=="\r")continue;
+    auto j=json::parse(line);auto status=str(j,"state");event({"progress",t.project,status,j});auto results=j.value("results",json::array());
+    if(!t.editing)for(size_t i=received;i<results.size();++i){download(t,results[i],str(t.cfg,"version","v9")+"_");received++;}
+    if(status=="completed"){if(t.editing&&!results.empty()){download(t,results.back(),"edit_");event({"history_ready",t.project,session,request("GET",joinUrl(base,"/sessions/"+session+"/history"),key).object()});event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});}terminal=true;}
+    else if(status=="failed"||status=="cancelled"){if(t.editing)event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});throw std::runtime_error(str(j,"error","서버 작업 중단"));}
+    else if(status!="queued"&&status!="running")throw std::runtime_error("알 수 없는 서버 작업 상태: "+status);
+   }
+  };
+  auto stream=request("GET",joinUrl(base,"/jobs/"+jid+"/events"),key,"","application/json",&cancel,256*1024*1024,seconds*1000,consume);
+  if(stream.code==429)throw std::runtime_error("서버 요청 제한 · 잠시 후 다시 생성해 주세요.");
+  if(!terminal)throw std::runtime_error("서버 상태 연결이 완료 전에 끊겼습니다. 진행 상태를 반복 조회하지 않습니다.");
+
  }
  void loop(){while(!stopping){Task task;{std::unique_lock lock(mutex);cv.wait(lock,[&]{return stopping||!tasks.empty();});if(stopping)return;task=std::move(tasks.front());tasks.pop_front();activeProject=task.project;activeRequest=task.requestId;jobApi=str(task.cfg,"api");jobKey=str(task.cfg,"api_key");jobId.clear();cancel=false;busy=true;}event({"started",task.project,"",{}});try{run(task);event({"done",task.project,cancel?"중지됨":"완료",{}});}catch(const std::exception& e){if(!cancel){event({"error",task.project,e.what(),{}});stop();}}busy=false;}}
 };
