@@ -1,0 +1,20 @@
+[
+  {
+    "file": "NotoSansKR-Regular.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/b7c8331cf620346575487ef8db0e2c729f014675/ofl/notosanskr/NotoSansKR[wght].ttf",
+    "weight": 400,
+    "sha256": "2fc2c9bc5da077e2abb00eafafc7b3b1d85f8dd230aff07aab6b16fc7daa9c2a"
+  },
+  {
+    "file": "NotoSansKR-Bold.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/b7c8331cf620346575487ef8db0e2c729f014675/ofl/notosanskr/NotoSansKR[wght].ttf",
+    "weight": 700,
+    "sha256": "a8901932f40f12d2ced9721ba6cbed4c80151ef1e65ca49a92ebf983b56fd992"
+  },
+  {
+    "file": "GoogleSansCode-Regular.ttf",
+    "source": "https://raw.githubusercontent.com/google/fonts/b7c8331cf620346575487ef8db0e2c729f014675/ofl/googlesanscode/GoogleSansCode[wght].ttf",
+    "weight": 400,
+    "sha256": "7dee69a6460db00530f4c2493d439564722c31ec36978617290f97213c0d26d7"
+  }
+]

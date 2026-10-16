@@ -1,0 +1,9 @@
+* text=auto
+*.sh text eol=lf
+api-* text eol=lf
+model-install text eol=lf
+*.py text eol=lf
+*.png -text
+*.ico -text
+*.ttf -text
+*.zip -text
