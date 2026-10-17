@@ -60,6 +60,7 @@ class NativeTests(unittest.TestCase):
             report=self.execute('--library-render-test',path,'native-library-render-result.json')
             self.assertTrue(report['actual_app_paint'])
             self.assertEqual(report['gpu_pixel_pages'],135)
+            self.assertEqual(report['learning_pages'],9)
             self.assertEqual(report['library_widths'],3)
             self.assertEqual(report['dpi_scales'],3)
     def test_responsive_grid_hit_testing_and_dark_options(self):

@@ -18,6 +18,8 @@ inline int libraryRenderTest(const fs::path& folder){try{
  }
  }
  }
- app.engine->stopping=true;app.engine->stop();atomicWrite(folder/"native-library-render-result.json",json{{"ok",true},{"gpu_pixel_pages",pages},{"actual_app_paint",true},{"dpi_scales",3},{"library_widths",3},{"gui_opened",false}}.dump(2));return 0;
+ int featurePages=0;app.rightWidth=410;app.dpi=1;app.ollamaModels=json::array({{{"name","vision:latest"}}});app.archivedAssets=json::array({{{"id","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},{"channel_name","테스트 방송"},{"origin","generation"},{"created","2026-10-17"}}});
+ for(float viewport:std::vector<float>{1040,1320,1920}){app.width=viewport;app.height=720;for(int feature:std::vector<int>{7,8,9}){app.page=feature;app.formScroll=0;app.paint();auto area=app.center(),card=app.card();int count=0;for(auto& b:app.buttons)if(b.rect.x>=area.x&&b.rect.x+b.rect.w<=area.x+area.w&&b.rect.y>400&&b.rect.y<card.y){if(b.rect.y+b.rect.h>=card.y)throw std::runtime_error("Learning action overlaps generation card");count++;}if(count<(feature==7?6:feature==8?9:6))throw std::runtime_error("Missing learning actions");featurePages++;}}
+ app.engine->stopping=true;app.engine->stop();atomicWrite(folder/"native-library-render-result.json",json{{"ok",true},{"gpu_pixel_pages",pages},{"learning_pages",featurePages},{"actual_app_paint",true},{"dpi_scales",3},{"library_widths",3},{"gui_opened",false}}.dump(2));return 0;
  }catch(const std::exception& e){atomicWrite(folder/"native-library-render-result.json",json{{"ok",false},{"error",e.what()},{"gui_opened",false}}.dump(2));return 1;}}
 }

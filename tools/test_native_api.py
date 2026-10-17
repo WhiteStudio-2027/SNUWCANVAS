@@ -29,6 +29,10 @@ def main():
                     message=BytesParser(policy=default).parsebytes(('Content-Type: '+self.headers['Content-Type']+'\r\nMIME-Version: 1.0\r\n\r\n').encode()+body)
                     fields={p.get_param('name',header='content-disposition'):p.get_payload(decode=True) for p in message.iter_parts()}
                     assert fields['count']==b'2'
+                    assert fields['channel_id']==b'channel-test'
+                    assert fields['channel_name'].decode()=='방송 A'
+                    assert fields['learn_preferences']==b'true'
+                    assert json.loads(fields['profile_ids'])==['a'*32]
                     controls=json.loads(fields['advanced_settings'])
                     assert controls['steps']==controls['hires_steps']==3
                     assert '한글' in fields['prompt'].decode()
@@ -37,6 +41,9 @@ def main():
                 elif self.path=='/sessions':self.send({'session_id':'edit-session'})
                 elif self.path=='/sessions/edit-session/edit?background=true':
                     payload=json.loads(body);assert payload['text']=='옷을 초록색으로';assert len(payload['request_id'])==32
+                    assert payload['model']=='chosen:latest'
+                    assert payload['channel_id']=='channel-test' and payload['channel_name']=='방송 A'
+                    assert payload['profile_ids']==['a'*32]
                     self.send({'id':'editing-test'})
                 else:raise AssertionError(self.path)
             except Exception as exc:errors.append(str(exc));self.send_error(500)
