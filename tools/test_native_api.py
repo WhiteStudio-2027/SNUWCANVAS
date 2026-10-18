@@ -72,6 +72,7 @@ def main():
             for image in images:
                 with Image.open(image) as data:assert data.size==(32,48)
                 assert 'native-test-key' not in image.with_suffix('.json').read_text(encoding='utf-8')
+                assert 'caption_api_key' not in json.loads(image.with_suffix('.json').read_text(encoding='utf-8'))['settings']
             print(json.dumps(dict(report,multipart_validated=True,steps_preserved=True,metadata_key_excluded=True),ensure_ascii=False))
     finally:server.shutdown();server.server_close();thread.join(timeout=2)
 

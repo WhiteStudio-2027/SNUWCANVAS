@@ -61,6 +61,7 @@ class NativeTests(unittest.TestCase):
             self.assertTrue(report['actual_app_paint'])
             self.assertEqual(report['gpu_pixel_pages'],135)
             self.assertEqual(report['learning_pages'],9)
+            self.assertEqual(report['learning_sections'],21)
             self.assertEqual(report['library_widths'],3)
             self.assertEqual(report['dpi_scales'],3)
     def test_responsive_grid_hit_testing_and_dark_options(self):
@@ -69,6 +70,8 @@ class NativeTests(unittest.TestCase):
             self.assertEqual(report['responsive_widths'],5)
             self.assertEqual(report['thumbnail_capacity'],256)
             self.assertTrue(report['dark_options'])
+            self.assertTrue(report['input_select_all'])
+            self.assertTrue(report['checkbox_toggle'])
     def test_existing_projects_on_temporary_copies(self):
         for source in (ROOT/'config',ROOT/'data/config'):
             if not (source/'channels.json').exists():continue
