@@ -22,7 +22,7 @@ struct AsyncTransfer {
   if(!context)return;auto* self=reinterpret_cast<AsyncTransfer*>(context);std::lock_guard lock(self->mutex);
   if(status==WINHTTP_CALLBACK_STATUS_HANDLE_CLOSING)self->closed=true;
   else if(status==WINHTTP_CALLBACK_STATUS_REQUEST_ERROR){self->error=((WINHTTP_ASYNC_RESULT*)data)->dwError;self->ready=true;}
-  else if(status==WINHTTP_CALLBACK_STATUS_SENDREQUEST_COMPLETE||status==WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE||status==WINHTTP_CALLBACK_STATUS_READ_COMPLETE){self->bytes=status==WINHTTP_CALLBACK_STATUS_READ_COMPLETE?length:0;self->ready=true;}
+  else if(status==WINHTTP_CALLBACK_STATUS_SENDREQUEST_COMPLETE||status==WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE||status==WINHTTP_CALLBACK_STATUS_READ_COMPLETE||status==WINHTTP_CALLBACK_STATUS_DATA_AVAILABLE){self->bytes=status==WINHTTP_CALLBACK_STATUS_DATA_AVAILABLE&&data&&length>=sizeof(DWORD)?*static_cast<DWORD*>(data):status==WINHTTP_CALLBACK_STATUS_READ_COMPLETE?length:0;self->ready=true;}
   self->cv.notify_all();
  }
  void start(){DWORD_PTR context=(DWORD_PTR)this;check(WinHttpSetOption(handle,WINHTTP_OPTION_CONTEXT_VALUE,&context,sizeof context)?S_OK:E_FAIL,"통신 컨텍스트 초기화 실패");if(WinHttpSetStatusCallback(handle,callback,WINHTTP_CALLBACK_FLAG_ALL_COMPLETIONS|WINHTTP_CALLBACK_FLAG_HANDLES,0)==WINHTTP_INVALID_STATUS_CALLBACK)throw std::runtime_error("비동기 통신 초기화 실패");armed=true;}
@@ -46,7 +46,7 @@ inline Response request(const std::string& method,const std::string& url,const s
  req.operation([&]{return WinHttpReceiveResponse(req,nullptr);},stop,deadline);
  Response out;DWORD n=sizeof out.code;WinHttpQueryHeaders(req,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,WINHTTP_HEADER_NAME_BY_INDEX,&out.code,&n,WINHTTP_NO_HEADER_INDEX);
  wchar_t retry[32];n=sizeof retry;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_RETRY_AFTER,nullptr,retry,&n,nullptr))out.retry=utf8(retry);
- for(;;){auto got=req.operation([&]{return WinHttpReadData(req,req.buffer,sizeof req.buffer,nullptr);},stop,deadline);if(!got)break;if(out.data.size()+got>limit)throw std::runtime_error("서버 응답 크기 제한 초과");if(onChunk&&out.code<300)onChunk(std::string(req.buffer,got));else out.data.append(req.buffer,got);}
+ size_t receivedBytes=0;for(;;){DWORD readSize=sizeof req.buffer;if(onChunk&&out.code<300){auto available=req.operation([&]{return WinHttpQueryDataAvailable(req,nullptr);},stop,deadline);if(!available)break;readSize=std::min<DWORD>(available,sizeof req.buffer);}auto got=req.operation([&]{return WinHttpReadData(req,req.buffer,readSize,nullptr);},stop,deadline);if(!got)break;if(got>limit-receivedBytes)throw std::runtime_error("서버 응답 크기 제한 초과");receivedBytes+=got;if(onChunk&&out.code<300)onChunk(std::string(req.buffer,got));else out.data.append(req.buffer,got);}
  if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==429)return out;throw std::runtime_error("HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason));}return out;
 }
 

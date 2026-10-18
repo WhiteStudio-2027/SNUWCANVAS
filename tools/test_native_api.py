@@ -14,7 +14,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def main():
     png=io.BytesIO();Image.new('RGB',(32,48),'#68a86c').save(png,format='PNG')
-    calls=[];errors=[]
+    calls=[];errors=[];first_image_received=threading.Event();batch_completed=threading.Event()
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*_):pass
         def send(self,value,kind='application/json'):
@@ -51,10 +51,32 @@ def main():
         def do_GET(self):
             calls.append(self.path)
             if self.headers.get('X-API-Key')!='native-test-key':errors.append('missing key')
-            if self.path=='/jobs/generation-test/events':self.stream({'state':'completed','completed':2,'count':2,'results':[{'image_url':'/images/1','seed':1},{'image_url':'/images/2','seed':2}]})
+            if self.path=='/jobs/generation-test/events':
+                self.send_response(200);self.send_header('Content-Type','application/x-ndjson');self.end_headers()
+                first={'state':'running','completed':1,'count':2,'results':[{'image_url':'/images/1','seed':1}]}
+                # A real open stream: completion is withheld until image 1 was saved.
+                body=(json.dumps(first)+'\n').encode()
+                self.wfile.write(body[:17]);self.wfile.flush()
+                self.wfile.write(body[17:]);self.wfile.flush()
+                if not first_image_received.wait(4):errors.append('First image not downloaded before batch completion')
+                # A repeated snapshot must not download the same result twice.
+                self.wfile.write(body);self.wfile.flush()
+                batch_completed.set()
+                self.wfile.write((json.dumps({'state':'completed','completed':2,'count':2,'results':[{'image_url':'/images/1','seed':1},{'image_url':'/images/2','seed':2}]})+'\n').encode());self.wfile.flush()
             elif self.path=='/jobs/editing-test/events':self.stream({'state':'completed','completed':1,'count':1,'results':[{'image_url':'/images/edit','version':1}]})
             elif self.path=='/sessions/edit-session/history':self.send({'current_version':1,'versions':[{'version':1,'parent':0,'image_url':'/images/edit'}]})
-            elif self.path.startswith('/images/'):self.send(png.getvalue(),'image/png')
+            elif self.path.startswith('/images/'):
+                self.send(png.getvalue(),'image/png')
+                if self.path=='/images/1':
+                    if batch_completed.is_set():errors.append('First image downloaded only after terminal frame')
+                    # Wait for the native client to finish saving, not only request the PNG.
+                    import time
+                    deadline=time.monotonic()+3
+                    while time.monotonic()<deadline:
+                        if any(p.stat().st_size>0 for p in path.glob('generated/*.png')):break
+                        time.sleep(.01)
+                    else:errors.append('First image was not saved while stream remained open')
+                    first_image_received.set()
             else:self.send_error(404)
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
@@ -66,6 +88,8 @@ def main():
             assert result.returncode==0 and report['ok'],report
             assert not errors,errors
             assert calls.count('/jobs/generation-test/events')==1,calls
+            assert calls.count('/images/1')==calls.count('/images/2')==1,calls
+            assert first_image_received.is_set(),calls
             assert calls.count('/jobs/editing-test/events')==1,calls
             assert '/jobs/generation-test' not in calls,calls
             images=list((path/'generated').glob('*.png'));assert len(images)==3,images
