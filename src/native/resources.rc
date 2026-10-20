@@ -1,6 +1,7 @@
 #include <windows.h>
+#include ".build/version.rc.h"
 1 ICON "assets/app.ico"
-1 RT_MANIFEST "src/native/windows.manifest"
+1 RT_MANIFEST ".build/windows.manifest"
 201 RCDATA "assets/splash.png"
 211 RCDATA "assets/fonts/NotoSansKR-Regular.ttf"
 212 RCDATA "assets/fonts/NotoSansKR-Bold.ttf"
@@ -9,8 +10,8 @@
 222 RCDATA "assets/fonts/GoogleSansCode-OFL.txt"
 223 RCDATA "src/native/third_party/json-LICENSE.MIT"
 1 VERSIONINFO
-FILEVERSION 1,0,0,0
-PRODUCTVERSION 1,0,0,0
+FILEVERSION SNUW_FILEVERSION
+PRODUCTVERSION SNUW_FILEVERSION
 FILETYPE VFT_APP
 BEGIN
  BLOCK "StringFileInfo"
@@ -18,7 +19,9 @@ BEGIN
   BLOCK "040904B0"
   BEGIN
    VALUE "FileDescription", "SNUWCANVAS"
-   VALUE "ProductName", "SNUWCANVAS"
+   VALUE "ProductName", "snuwcanvas"
+   VALUE "FileVersion", SNUW_VERSION_STRING
+   VALUE "ProductVersion", SNUW_VERSION_STRING
    VALUE "OriginalFilename", "SNUWCANVAS.exe"
   END
  END

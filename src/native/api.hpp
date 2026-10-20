@@ -1,5 +1,6 @@
 #pragma once
 #include "model.hpp"
+#include "identity.hpp"
 namespace snuw {
 struct Internet {HINTERNET h=nullptr;Internet()=default;explicit Internet(HINTERNET p):h(p){}~Internet(){if(h)WinHttpCloseHandle(h);}Internet(const Internet&)=delete;operator HINTERNET()const{return h;}};
 struct Url {std::wstring host,path;INTERNET_PORT port;bool secure;explicit Url(const std::string& value){auto s=wide(value);URL_COMPONENTS u{};u.dwStructSize=sizeof u;u.dwHostNameLength=u.dwUrlPathLength=u.dwExtraInfoLength=DWORD(-1);if(!WinHttpCrackUrl(s.c_str(),0,0,&u)||(u.nScheme!=INTERNET_SCHEME_HTTP&&u.nScheme!=INTERNET_SCHEME_HTTPS)||u.dwUserNameLength||u.dwPasswordLength)throw std::runtime_error("HTTP(S) 서버 주소를 확인하세요.");host.assign(u.lpszHostName,u.dwHostNameLength);path.assign(u.lpszUrlPath,u.dwUrlPathLength);if(u.dwExtraInfoLength)path.append(u.lpszExtraInfo,u.dwExtraInfoLength);if(path.empty())path=L"/";port=u.nPort;secure=u.nScheme==INTERNET_SCHEME_HTTPS;}};
@@ -37,11 +38,12 @@ struct AsyncTransfer {
  operator HINTERNET()const{return handle;}
 };
 inline Response request(const std::string& method,const std::string& url,const std::string& key="",const std::string& body="",const std::string& content="application/json",const std::atomic_bool* stop=nullptr,size_t limit=256*1024*1024,int timeoutMs=240000,std::function<void(const std::string&)> onChunk={}){
+ beforeDeviceRequest(url,key);
  if(!stop)stop=networkStop;auto deadline=std::min(networkDeadline,std::chrono::steady_clock::now()+std::chrono::milliseconds(timeoutMs));
  Url u(url);if(std::string(networkMode)!="standard"&&std::string(networkMode)!="hardcore")throw std::runtime_error("콘텐츠 모드 오류");if(key.find_first_of("\r\n")!=std::string::npos)throw std::runtime_error("비밀키에 줄바꿈이 있습니다.");
  Internet session(WinHttpOpen(L"SNUWCANVAS/Native",WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,WINHTTP_FLAG_ASYNC));if(!session.h)throw std::runtime_error("네트워크 초기화 실패");WinHttpSetTimeouts(session,10000,10000,30000,std::max(30000,timeoutMs));
  Internet connection(WinHttpConnect(session,u.host.c_str(),u.port,0));AsyncTransfer req(WinHttpOpenRequest(connection,wide(method).c_str(),u.path.c_str(),nullptr,WINHTTP_NO_REFERER,WINHTTP_DEFAULT_ACCEPT_TYPES,u.secure?WINHTTP_FLAG_SECURE:0));req.start();DWORD redirect=WINHTTP_OPTION_REDIRECT_POLICY_NEVER;WinHttpSetOption(req,WINHTTP_OPTION_REDIRECT_POLICY,&redirect,sizeof redirect);
- std::wstring headers=L"Content-Type: "+wide(content)+L"\r\nX-Content-Mode: "+wide(networkMode)+L"\r\n";if(!key.empty())headers+=L"X-API-Key: "+wide(key)+L"\r\n";
+ std::wstring headers=L"X-Client-Version: "+wide(CLIENT_VERSION)+L"\r\n";if(deviceIdentity)headers+=L"X-Client-Id: "+wide(deviceIdentity->uuid)+L"\r\n";headers+=L"Content-Type: "+wide(content)+L"\r\nX-Content-Mode: "+wide(networkMode)+L"\r\n";if(!key.empty())headers+=L"X-API-Key: "+wide(key)+L"\r\n";
  req.operation([&]{return WinHttpSendRequest(req,headers.c_str(),DWORD(-1),body.empty()?WINHTTP_NO_REQUEST_DATA:(void*)body.data(),DWORD(body.size()),DWORD(body.size()),(DWORD_PTR)&req);},stop,deadline);
  req.operation([&]{return WinHttpReceiveResponse(req,nullptr);},stop,deadline);
  Response out;DWORD n=sizeof out.code;WinHttpQueryHeaders(req,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,WINHTTP_HEADER_NAME_BY_INDEX,&out.code,&n,WINHTTP_NO_HEADER_INDEX);
@@ -50,6 +52,23 @@ inline Response request(const std::string& method,const std::string& url,const s
  if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==429)return out;throw std::runtime_error("HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason));}return out;
 }
 
+
+inline void beforeDeviceRequest(const std::string& url,const std::string& key){
+ static thread_local bool active=false;static std::map<std::string,std::chrono::steady_clock::time_point> ready;
+ if(active||!deviceIdentity||key.empty())return;Url parts(url);auto path=utf8(parts.path);bool api=false;size_t prefix=std::string::npos;for(auto route:{"/jobs","/generate","/prompt","/sessions","/images","/learning","/auth/info","/capabilities"}){auto pos=path.find(route);if(pos!=std::string::npos&&(prefix==std::string::npos||pos<prefix)){api=true;prefix=pos;}}if(!api)return;
+ auto scheme=parts.secure?"https://":"http://";auto base=std::string(scheme)+(utf8(parts.host).find(':')!=std::string::npos?"["+utf8(parts.host)+"]":utf8(parts.host))+":"+std::to_string(parts.port)+path.substr(0,prefix);auto cache=base+"|"+sha256(key);
+ std::lock_guard lock(deviceRegistrationMutex);if(ready.contains(cache)&&ready[cache]>std::chrono::steady_clock::now())return;
+ struct Reset{bool& value;~Reset(){value=false;}}reset{active};active=true;
+ auto version=request("GET",joinUrl(base,"/api/version"),key,"","application/json",nullptr,64*1024,15000).object();
+ if(!version.contains("min_client_version"))throw std::runtime_error("서버 버전 응답 오류");
+ auto policy=request("GET",joinUrl(base,"/api/legal"),key,"","application/json",nullptr,128*1024,15000).object();auto rev=str(policy,"version"),digest=str(policy,"digest"),text=str(policy,"text");if(rev.empty()||digest.size()!=64||text.empty())throw std::runtime_error("동의서 응답 오류");
+ // A new server policy is never silently accepted, even if an old local draft was accepted.
+ reviewConsent(base,rev,digest,text);bool hardware=deviceIdentity->hardware(base);
+ json body={{"client_id",deviceIdentity->uuid},{"client_version",CLIENT_VERSION},{"consent_version",rev},{"consent_digest",digest},{"required_agreed",true},{"hardware_agreed",hardware}};if(hardware)body["hardware"]=deviceHardware();
+ request("POST",joinUrl(base,"/api/devices/register"),key,body.dump(),"application/json",nullptr,64*1024,15000);while(ready.size()>=64)ready.erase(ready.begin());ready[cache]=std::chrono::steady_clock::now()+std::chrono::seconds(60);
+}
+
+inline int foundationNetworkTest(const fs::path& folder,const std::string& base){try{deviceIdentity=std::make_shared<DeviceIdentity>(folder);auto policy=request("GET",joinUrl(base,"/api/legal"),"native-test-key").object();deviceIdentity->accept(base,str(policy,"version"),str(policy,"digest"),false);beforeDeviceRequest(joinUrl(base,"/jobs"),"native-test-key");auto response=request("GET",joinUrl(base,"/protected"),"native-test-key").object();if(!response.value("ok",false))throw std::runtime_error("device registration failed");atomicWrite(folder/"foundation-network-result.json",json{{"ok",true},{"gui_opened",false},{"client_id",deviceIdentity->uuid},{"client_version",CLIENT_VERSION}}.dump(2));return 0;}catch(const std::exception& e){atomicWrite(folder/"foundation-network-result.json",json{{"ok",false},{"error",e.what()}}.dump(2));return 1;}}
 struct Multipart {std::string boundary="snuw"+id(),data;void field(const std::string& name,const std::string& value){data+="--"+boundary+"\r\nContent-Disposition: form-data; name=\""+name+"\"\r\n\r\n"+value+"\r\n";}void file(const std::string& name,const fs::path& p,size_t max=25*1024*1024){std::error_code ec;auto size=fs::file_size(p,ec);if(ec||!size||size>max)throw std::runtime_error("이미지 파일 크기를 확인하세요.");auto bytes=readFile(p);if(bytes.empty()||bytes.size()>max)throw std::runtime_error("이미지 파일 크기를 확인하세요.");auto filename=utf8(p.filename().wstring());for(auto& c:filename)if(c=='\r'||c=='\n'||c=='"')c='_';data+="--"+boundary+"\r\nContent-Disposition: form-data; name=\""+name+"\"; filename=\""+filename+"\"\r\nContent-Type: "+mime(p)+"\r\n\r\n"+bytes+"\r\n";}std::string type()const{return "multipart/form-data; boundary="+boundary;}std::string finish(){return data+"--"+boundary+"--\r\n";}};
 inline std::string profileId(std::string value){if(value.empty()||value=="사용 안 함"||value=="서버 기본")return "";auto split=value.find(" | ");if(split!=std::string::npos)value=value.substr(0,split);if(value.size()!=32||value.find_first_not_of("0123456789abcdef")!=std::string::npos)throw std::runtime_error("목록에서 등록한 프로필을 선택하세요.");return value;}
 inline json selectedProfiles(const json& cfg){json ids=json::array();if(flag(cfg,"consistency_enabled"))for(auto key:{"consistency_profile","style_profile"}){auto value=profileId(str(cfg,key));if(!value.empty())ids.push_back(value);}return ids;}
