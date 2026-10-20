@@ -55,7 +55,7 @@ inline Response request(const std::string& method,const std::string& url,const s
 
 inline void beforeDeviceRequest(const std::string& url,const std::string& key){
  static thread_local bool active=false;static std::map<std::string,std::chrono::steady_clock::time_point> ready;
- if(active||!deviceIdentity||key.empty())return;Url parts(url);auto path=utf8(parts.path);bool api=false;size_t prefix=std::string::npos;for(auto route:{"/jobs","/generate","/prompt","/sessions","/images","/learning","/auth/info","/capabilities"}){auto pos=path.find(route);if(pos!=std::string::npos&&(prefix==std::string::npos||pos<prefix)){api=true;prefix=pos;}}if(!api)return;
+ if(active||!deviceIdentity||key.empty())return;Url parts(url);auto path=utf8(parts.path);bool api=false;size_t prefix=std::string::npos;for(auto route:{"/jobs","/generate","/prompt","/sessions","/images","/learning","/auth/info","/capabilities","/api/usage"}){auto pos=path.find(route);if(pos!=std::string::npos&&(prefix==std::string::npos||pos<prefix)){api=true;prefix=pos;}}if(!api)return;
  auto scheme=parts.secure?"https://":"http://";auto base=std::string(scheme)+(utf8(parts.host).find(':')!=std::string::npos?"["+utf8(parts.host)+"]":utf8(parts.host))+":"+std::to_string(parts.port)+path.substr(0,prefix);auto cache=base+"|"+sha256(key);
  std::lock_guard lock(deviceRegistrationMutex);if(ready.contains(cache)&&ready[cache]>std::chrono::steady_clock::now())return;
  struct Reset{bool& value;~Reset(){value=false;}}reset{active};active=true;
