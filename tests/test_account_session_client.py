@@ -12,6 +12,14 @@ EXE = ROOT / '.build/SNUWCANVAS.exe'
 
 @unittest.skipUnless(EXE.exists(), 'Build native client first')
 class AccountSessionClientTests(unittest.TestCase):
+    def test_developer_table_and_non_developer_gate_without_visible_window(self):
+        with tempfile.TemporaryDirectory(dir=ROOT / '.build') as name:
+            result=subprocess.run([str(EXE),'--developer-test',name],timeout=25,creationflags=subprocess.CREATE_NO_WINDOW)
+            report=json.loads((Path(name)/'developer-result.json').read_text(encoding='utf-8'))
+            self.assertEqual(result.returncode,0,report)
+            self.assertFalse(report['gui_opened'])
+            self.assertTrue(report['ordinary_user_blocked'])
+
     def test_rotated_tokens_are_protected_origin_bound_and_serialized(self):
         calls = []
 

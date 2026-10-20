@@ -3,6 +3,7 @@
 namespace snuw {
 inline int captionTest(const fs::path& folder,const std::string& base,const std::string& mode){try{
  json cfg={{"caption_api",base},{"caption_api_key","caption-test-secret"},{"caption_model","vision:model/8b"},{"caption_format","tags"}};std::atomic_bool cancel{false};auto begin=std::chrono::steady_clock::now();
+ if(mode=="account"){accountSession=std::make_shared<AccountSession>(folder);accountSession->accept(base,json{{"access_token",std::string(32,'a')},{"refresh_token",std::string(60,'r')},{"expires_in",900},{"account_id","test"}});cfg["api"]=base;cfg["api_key"]=accountCredential;cfg["caption_api"]="http://127.0.0.1:1";cfg["caption_api_key"]="";}
  auto models=captionRequest(cfg,{},true,&cancel);if(models.value("models",json::array()).empty())throw std::runtime_error("Missing vision models");
  bool interrupted=false;std::thread interrupter;if(mode=="cancel")interrupter=std::thread([&]{Sleep(100);cancel=true;});json result;
  try{result=captionRequest(cfg,folder/L"input.png",false,&cancel);}catch(...){if(mode!="cancel"){if(interrupter.joinable())interrupter.join();throw;}interrupted=true;}

@@ -19,7 +19,7 @@ LearningLayout learningLayout(Rect c,Rect g){
   out.referencesY=y+8;{auto key=profileId(str(store->settings,"profile_target"));auto found=referenceProfiles.find(key);size_t count=found==referenceProfiles.end()?0:found->second.value("references",json::array()).size();y+=92+std::min(size_t(4),count)*37;}
   input("profile_caption",L"이 이미지의 설명 (영문 · 선택)");actions({{5,L"이미지 추가",true}});
   actions({{7,L"학습 시작",true},{8,L"학습 중지",false}});break;
- default:out.title=L"자동 캡션 테스트";out.hint=L"독립 캡션 API에 연결해 이미지 설명을 만듭니다.";
+ default:out.title=L"자동 캡션 테스트";out.hint=L"로그인한 서버에서 이미지 설명을 만듭니다.";
 actions({{18,L"모델 조회",false}});
   {std::vector<std::wstring> choices={L"모델을 조회하세요"};for(auto& row:captionModels)choices.push_back(wide(str(row,"name")));input("caption_model",L"비전 모델",choices);}
   input("caption_mode",L"용도",{L"prompt",L"training"});input("caption_format",L"출력 형식",{L"tags",L"sentence"});input("caption_image",L"테스트 이미지");actions({{19,L"이미지 선택",false},{20,L"자동 캡션",true},{22,L"요청 중지",false}});
