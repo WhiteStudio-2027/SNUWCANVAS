@@ -16,6 +16,8 @@ inline int studioTest(const fs::path& folder){try{
   app.focusPreview=true;app.paint();if(app.previewRect.h<app.height*.55f||app.browser.h!=0)throw std::runtime_error("Large preview mode failed");app.focusPreview=false;viewports++;
  }
  if(!app.navTooltip||SendMessageW(app.navTooltip,TTM_GETTOOLCOUNT,0,0)!=app.navigationPages().size()+6)throw std::runtime_error("Navigation descriptions missing");int before=app.page;app.message(WM_MOUSEMOVE,0,MAKELPARAM(24,124));if(app.page!=before)throw std::runtime_error("Hover changed the page");app.click(24,124);if(app.page!=1)throw std::runtime_error("Sidebar click did not change the page");
+ app.setPage(10);app.paint();for(auto& f:app.fields)if(f.key=="workflow_profile"||f.key=="genre"||f.key=="render_mode")throw std::runtime_error("Global settings retained generation controls");
+ app.switchProject(store->active);app.paint();if(app.page!=0||!app.positive||!app.negative)throw std::runtime_error("Channel selection did not open generation");
  app.accountProfile={{"email","test@example.invalid"},{"role","safe"}};store->settings["api_key"]=accountCredential;
  app.accountMenu();app.paint();if(app.page!=13||!app.profileNickname||!app.profileBio)throw std::runtime_error("Account page did not open");app.setPage(0);app.paint();
  for(auto& entry:app.navigationPages())if(entry.first==7||entry.first==8)throw std::runtime_error("Regular account can see developer pages");bool denied=false;try{app.setPage(7);}catch(...){denied=true;}if(!denied)throw std::runtime_error("Regular account opened consistency");

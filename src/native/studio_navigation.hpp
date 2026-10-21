@@ -9,9 +9,9 @@ std::vector<std::pair<int,std::wstring>> navigationPages()const{
 void navigationPaint(){
  renderer.box({8,8,48,height-16},0x19191a,0x303033,10);
  auto tile=[&](Rect r,int glyph,bool active,std::function<void()> command){renderer.box(r,active?0x34343b:0x19191a,0,8);icon({r.x+9,r.y+9,16,16},glyph,active?0xb5c2ff:0x999eaf);buttons.push_back({r,L"",command,false});};
- tile({15,20,34,34},3,projectsOpen,[this]{save();projectsOpen=!projectsOpen;leftWidth=projectsOpen?260.f:64.f;autoWorkspace=true;rebuild(false);});
- const int glyphs[]={0,1,2,3,4,6,7,10,8,9};int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*36.f,34,34},glyphs[id],id==page,[this,id]{setPage(id);});row++;}
- float y=height-206;tile({15,y,34,34},1,false,[this]{auto address=wide(joinUrl(str(store->settings,"api"),"/community/"));if((INT_PTR)ShellExecuteW(hwnd,L"open",address.c_str(),nullptr,nullptr,SW_SHOWNORMAL)<=32)throw std::runtime_error("브라우저를 열 수 없습니다.");});tile({15,y+40,34,34},6,false,[this]{save();status=L"저장 완료";});tile({15,y+80,34,34},4,false,[this]{projectMenu();});tile({15,y+120,34,34},2,page==10,[this]{setPage(10);});tile({15,y+160,34,34},5,page==13,[this]{accountMenu();});
+ tile({15,20,34,34},11,projectsOpen,[this]{save();projectsOpen=!projectsOpen;leftWidth=projectsOpen?260.f:64.f;autoWorkspace=true;rebuild(false);});
+ const int glyphs[]={0,1,2,9,4,6,7,10,8,15};int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*36.f,34,34},glyphs[id],id==page,[this,id]{setPage(id);});row++;}
+ float y=height-206;tile({15,y,34,34},13,false,[this]{auto address=wide(joinUrl(str(store->settings,"api"),"/community/"));if((INT_PTR)ShellExecuteW(hwnd,L"open",address.c_str(),nullptr,nullptr,SW_SHOWNORMAL)<=32)throw std::runtime_error("브라우저를 열 수 없습니다.");});tile({15,y+40,34,34},12,false,[this]{save();status=L"저장 완료";});tile({15,y+80,34,34},11,false,[this]{projectMenu();});tile({15,y+120,34,34},14,page==10,[this]{setPage(10);});tile({15,y+160,34,34},5,page==13,[this]{accountMenu();});
 }
 void updateNavigationTips(){
  if(navTooltip)DestroyWindow(navTooltip);navTooltip=nullptr;navHintTexts.clear();if(!hwnd||welcome)return;
