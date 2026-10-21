@@ -9,7 +9,7 @@ void accountSignIn(bool creating=false){
  quotaUsage=request("GET",joinUrl(base,"/api/usage"),accountCredential).object();
  welcome=false;page=0;save();status=L"로그인했습니다.";rebuild(false);
 }
-void accountMenu(){if(accountProfile.empty()){accountSignIn();return;}accountPopover=!accountPopover;}
+void accountMenu(){if(accountProfile.empty()){accountSignIn();return;}setPage(13);}
 void accountOverlay(){
  if(imageSearch)ShowWindow(imageSearch,accountPopover?SW_HIDE:SW_SHOW);if(!accountPopover)return;
  Rect panel{width-278,54,250,219};renderer.box(panel,0x20242f,0x41495e,12);icon({panel.x+16,panel.y+16,24,24},5,0xb5c2ff);

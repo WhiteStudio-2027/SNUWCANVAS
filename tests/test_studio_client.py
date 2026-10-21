@@ -20,5 +20,5 @@ class StudioTests(unittest.TestCase):
             self.assertEqual(result['viewports'], 4)
             self.assertTrue(result['logout_keeps_workspace'])
             self.assertTrue(result['large_preview'])
-            self.assertTrue(result['account_popover'])
+            self.assertTrue(result['account_page'])
             self.assertFalse(result['gui_opened'])
