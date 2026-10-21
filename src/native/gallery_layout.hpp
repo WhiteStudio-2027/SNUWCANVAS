@@ -3,8 +3,8 @@
 namespace snuw {
 inline constexpr size_t thumbnailCapacity=256;
 struct GalleryLayout {
- int columns=3;float tileWidth=120,tileHeight=138,gap=6;
- explicit GalleryLayout(float width){columns=std::max(1,int((width+gap)/126.f));tileWidth=std::max(1.f,(width-gap*(columns-1))/columns);}
+ int columns=3;float tileWidth=172,tileHeight=204,gap=10;
+ explicit GalleryLayout(float width){columns=std::clamp(int((width+gap)/180.f),1,5);tileWidth=std::max(1.f,(width-gap*(columns-1))/columns);tileHeight=tileWidth*1.12f+gap;}
  int rows(size_t count)const{return int((count+columns-1)/columns);}
  float contentHeight(size_t count)const{return rows(count)*tileHeight;}
  Rect tile(Rect area,int index,float scroll)const{return {area.x+(index%columns)*(tileWidth+gap),area.y+(index/columns)*tileHeight-scroll,tileWidth,tileHeight-gap};}
