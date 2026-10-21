@@ -4,7 +4,7 @@ namespace snuw {
 inline int studioTest(const fs::path& folder){try{
  INITCOMMONCONTROLSEX controls{sizeof controls,ICC_STANDARD_CLASSES|ICC_WIN95_CLASSES};InitCommonControlsEx(&controls);
  if(!LoadLibraryW(L"Msftedit.dll"))throw std::runtime_error("Rich text controls unavailable");
- auto store=std::make_shared<Store>(folder);store->load();App app(store);
+ auto store=std::make_shared<Store>(folder);store->load();App app(store);app.accountProfile={{"email","test@example.invalid"},{"role","safe"}};
  WNDCLASSW klass{};klass.hInstance=GetModuleHandle(nullptr);klass.lpfnWndProc=DefWindowProcW;klass.lpszClassName=L"SnuwStudioTest";RegisterClassW(&klass);
  HWND window=CreateWindowExW(0,klass.lpszClassName,L"",WS_POPUP,0,0,1320,900,nullptr,nullptr,klass.hInstance,nullptr);
  if(!window)throw std::runtime_error("Hidden studio window failed");app.init(window);int viewports=0;
@@ -15,10 +15,13 @@ inline int studioTest(const fs::path& folder){try{
   app.paint();if(!app.status.empty())throw std::runtime_error(utf8(app.status));if(app.browser.h<app.height*.55f)throw std::runtime_error("Gallery is too small");
   app.focusPreview=true;app.paint();if(app.previewRect.h<app.height*.55f||app.browser.h!=0)throw std::runtime_error("Large preview mode failed");app.focusPreview=false;viewports++;
  }
+ if(!app.navTooltip||SendMessageW(app.navTooltip,TTM_GETTOOLCOUNT,0,0)!=app.navigationPages().size()+3)throw std::runtime_error("Navigation descriptions missing");int before=app.page;app.message(WM_MOUSEMOVE,0,MAKELPARAM(24,124));if(app.page!=before)throw std::runtime_error("Hover changed the page");app.click(24,124);if(app.page!=1)throw std::runtime_error("Sidebar click did not change the page");
  app.accountProfile={{"email","test@example.invalid"},{"role","safe"}};store->settings["api_key"]=accountCredential;
  app.accountMenu();app.paint();if(!app.accountPopover)throw std::runtime_error("Account popover did not open");app.click(0,0);if(app.accountPopover)throw std::runtime_error("Account popover did not close outside");
+ for(auto& entry:app.navigationPages())if(entry.first==7||entry.first==8)throw std::runtime_error("Regular account can see developer pages");bool denied=false;try{app.setPage(7);}catch(...){denied=true;}if(!denied)throw std::runtime_error("Regular account opened consistency");
  app.learningReply({"learning_reply",store->active,"account_logout",json::object()});
- if(!app.accountProfile.empty()||!str(store->settings,"api_key").empty()||!IsWindow(window)||app.closing)throw std::runtime_error("Logout closed the workspace or retained credentials");
+ if(!app.accountProfile.empty()||!str(store->settings,"api_key").empty()||!IsWindow(window)||app.closing||!app.welcome||app.positive||app.negative)throw std::runtime_error("Logout closed the workspace or retained credentials");
+ bool locked=false;try{app.enqueue();}catch(...){locked=true;}if(!locked)throw std::runtime_error("Logged-out workspace allowed generation");app.paint();if(app.buttons.size()!=2)throw std::runtime_error("Logged-out screen exposed workspace actions");
  app.engine->stopping=true;app.engine->stop();DestroyWindow(window);
  atomicWrite(folder/"studio-result.json",json{{"ok",true},{"gui_opened",false},{"viewports",viewports},{"logout_keeps_workspace",true},{"large_preview",true},{"account_popover",true}}.dump(2));return 0;
  }catch(const std::exception& error){atomicWrite(folder/"studio-result.json",json{{"ok",false},{"error",error.what()}}.dump(2));return 1;}}

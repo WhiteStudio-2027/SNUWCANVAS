@@ -1,13 +1,13 @@
 std::string modeAuthKey,modeAuthApi;
 json accountProfile=json::object();
-void accountSignIn(){
+void accountSignIn(bool creating=false){
  if(engine->busy||learningBusy||developerBusy||captionRunning)throw std::runtime_error("진행 중인 작업을 마친 뒤 로그인하세요.");
- save();if(!loginAccount(hwnd,store->root,store->settings))return;
+ save();if(!loginAccount(hwnd,store->root,store->settings,creating))return;
  NetworkScope scope(nullptr,std::chrono::steady_clock::now()+std::chrono::seconds(25));auto base=str(store->settings,"api");
  accountProfile=request("GET",joinUrl(base,"/api/auth/me"),accountCredential).object();
  beforeDeviceRequest(joinUrl(base,"/api/usage"),accountCredential);
  quotaUsage=request("GET",joinUrl(base,"/api/usage"),accountCredential).object();
- save();status=L"로그인했습니다.";rebuild(false);
+ welcome=false;page=0;save();status=L"로그인했습니다.";rebuild(false);
 }
 void accountMenu(){if(accountProfile.empty()){accountSignIn();return;}accountPopover=!accountPopover;}
 void accountOverlay(){
