@@ -12,7 +12,7 @@ json developerSelection(){int index=positive?ListView_GetNextItem(positive,-1,LV
 void developerTable(){if(page!=11||!positive)return;ListView_DeleteAllItems(positive);while(ListView_DeleteColumn(positive,0)){}std::vector<std::pair<std::string,std::wstring>> columns;
  if(developerView==0)columns={{"email",L"이메일"},{"role",L"등급"},{"id",L"계정 ID"},{"owner",L"한도 대상 ID"},{"enabled",L"활성"}};
  if(developerView==1)columns={{"id",L"이미지 ID"},{"user_id",L"계정"},{"channel_id",L"채널"},{"expired",L"만료"},{"deleted",L"삭제"}};
- if(developerView==2)columns={{"event",L"이벤트"},{"actor",L"실행자"},{"subject",L"대상"},{"created",L"시각 (Unix)"}};
+ if(developerView==2)columns={{"action",L"이벤트"},{"actor",L"실행자"},{"target",L"대상"},{"created",L"시각 (Unix)"}};
  if(developerView==3)columns={{"name",L"이름"},{"tier",L"등급"},{"enabled",L"활성"},{"expires_at",L"만료 (Unix)"},{"fingerprint",L"키 지문"}};
  if(developerView==4)columns={{"stage",L"검사 단계"},{"enabled",L"활성"}};
  for(int i=0;i<int(columns.size());i++){LVCOLUMNW col{};col.mask=LVCF_TEXT|LVCF_WIDTH;col.pszText=const_cast<wchar_t*>(columns[i].second.c_str());col.cx=int((i==0?150:120)*dpi);SendMessageW(positive,LVM_INSERTCOLUMNW,i,(LPARAM)&col);}
