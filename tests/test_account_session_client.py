@@ -38,6 +38,8 @@ class AccountSessionClientTests(unittest.TestCase):
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
                 calls.append(('POST', self.path, dict(self.headers), body))
+                if self.path=='/api/auth/logout-all':
+                    self.reply({'logged_out':True});return
                 self.reply({'access_token': 'b' * 32, 'refresh_token': 's' * 60,
                             'expires_in': 900, 'account_id': 'test-account'})
 
@@ -58,7 +60,12 @@ class AccountSessionClientTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, report)
                 self.assertFalse(report['gui_opened'])
                 self.assertTrue(report['cross_origin_blocked'])
-                refreshes = [row for row in calls if row[0] == 'POST']
+                self.assertTrue(report['logout_all'])
+                logouts=[row for row in calls if row[1]=='/api/auth/logout-all']
+                self.assertEqual(len(logouts),1)
+                self.assertEqual(logouts[0][2].get('Authorization'),'Bearer '+'b'*32)
+                self.assertEqual(logouts[0][3],{})
+                refreshes = [row for row in calls if row[1] == '/api/auth/refresh']
                 self.assertEqual(len(refreshes), 1)
                 self.assertEqual(refreshes[0][1], '/api/auth/refresh')
                 self.assertEqual(refreshes[0][3], {'refresh_token': 'r' * 60})
