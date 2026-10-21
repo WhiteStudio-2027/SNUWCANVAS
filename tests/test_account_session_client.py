@@ -19,6 +19,7 @@ class AccountSessionClientTests(unittest.TestCase):
             self.assertEqual(result.returncode,0,report)
             self.assertFalse(report['gui_opened'])
             self.assertTrue(report['ordinary_user_blocked'])
+            self.assertTrue(report['community_management'])
 
     def test_rotated_tokens_are_protected_origin_bound_and_serialized(self):
         calls = []
