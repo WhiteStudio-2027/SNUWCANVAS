@@ -1,4 +1,5 @@
 bool welcome=false,projectsOpen=false;
+Com<ID2D1Bitmap> welcomeBackground,welcomeLogo;
 HWND navTooltip=nullptr;std::vector<std::wstring> navHintTexts;
 std::vector<std::pair<int,std::wstring>> navigationPages()const{
  std::vector<std::pair<int,std::wstring>> out;
@@ -21,11 +22,14 @@ void updateNavigationTips(){
 }
 void paintWelcome(){
  browser={};previewRect={};accountPopover=false;
+ if(!welcomeBackground)welcomeBackground=renderer.resource(202);
+ if(!welcomeLogo)welcomeLogo=renderer.resource(203);
+ if(welcomeBackground){auto size=welcomeBackground->GetSize();float scale=std::max(width/size.width,height/size.height);float sw=width/scale,sh=height/scale;renderer.target->DrawBitmap(welcomeBackground.Get(),D2D1::RectF(0,0,width,height),1,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,D2D1::RectF((size.width-sw)/2,(size.height-sh)/2,(size.width+sw)/2,(size.height+sh)/2));}
+ renderer.fill({0,0,width,height},0x101022,.72f);
  float w=std::min(520.f,width-80),x=(width-w)/2,y=std::max(48.f,(height-430)/2);
- renderer.box({x,y,w,430},0x1b1b1c,0x333338,18);icon({x+w/2-18,y+34,36,36},0,0xb5c2ff);
- label(L"SNUWCANVAS",{x+40,y+89,w-80,45},true,0xe9e8f2,28);
- label(L"이미지로 시작하는 새로운 작업",{x+40,y+145,w-80,30},false,0xb2b1c7,15);
- label(L"로그인 후 이미지 생성 서비스를 이용하세요.",{x+40,y+187,w-80,28},false,0x9695ad,12);
+ renderer.box({x,y,w,430},0x1b1b1c,0x333338,18);renderer.bitmap(welcomeLogo.Get(),{x+w/2-26,y+30,52,52});
+ renderer.text(L"SNUWCANVAS",{x+40,y+101,w-80,45},0xe9e8f2,28,true,true);
+ renderer.text(L"이미지로 시작하는 새로운 작업",{x+40,y+157,w-80,30},0xb2b1c7,15,false,true);
  button({x+40,y+242,w-80,42},L"로그인",[this]{accountSignIn();},true);
  button({x+40,y+296,w-80,42},L"계정 만들기",[this]{accountSignIn(true);});
 
