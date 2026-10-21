@@ -83,7 +83,7 @@ def main():
     try:
         with tempfile.TemporaryDirectory(dir=ROOT/'.build') as folder:
             path=Path(folder);(path/'reference.png').write_bytes(png.getvalue())
-            result=subprocess.run([str(ROOT/'.build/SNUWCANVAS.exe'),'--api-test',folder,f'http://127.0.0.1:{server.server_port}'],timeout=60,creationflags=subprocess.CREATE_NO_WINDOW)
+            result=subprocess.run([str(ROOT.parent/'SNUWCANVAS.exe'),'--api-test',folder,f'http://127.0.0.1:{server.server_port}'],timeout=60,creationflags=subprocess.CREATE_NO_WINDOW)
             report=json.loads((path/'native-api-result.json').read_text(encoding='utf-8'))
             assert result.returncode==0 and report['ok'],report
             assert not errors,errors

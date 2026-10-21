@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / '.build/SNUWCANVAS.exe'
+EXE = ROOT.parent / 'SNUWCANVAS.exe'
 
 
 @unittest.skipUnless(EXE.exists(), 'Build native client first')
@@ -19,5 +19,7 @@ class AccountUiTests(unittest.TestCase):
             result = json.loads((Path(folder) / 'account-ui-result.json').read_text())
             self.assertEqual(process.returncode, 0, result)
             self.assertTrue(result['tabs_verified'])
+            self.assertTrue(result['inputs_centered'])
+            self.assertEqual(result['theme'], 'dark')
             self.assertFalse(result['gui_opened'])
             self.assertEqual(result['scales'], [100, 150, 200])

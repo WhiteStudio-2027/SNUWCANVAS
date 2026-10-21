@@ -4,7 +4,7 @@
 - server/: Ubuntu 서버 코드·관리 CLI·업데이트 도구·테스트·문서.
 - tools/: 공통 배포와 전체 검사 도구, 개발 의존성.
 - docs/: 공통 안내와 이전 조사 기록.
-- releases/: 고정 이름의 최신 클라이언트/서버 ZIP. 재배포 시 덮어씁니다.
+- SNUWCANVAS.exe: 작업 공간 루트의 유일한 클라이언트 배포 파일. 빌드와 테스트 모두 이 파일을 사용합니다.
 
 루트 SNUWCANVAS.exe는 현재 PC의 설치 실행 파일입니다. data/, config/, prompts/, generated/, archive/는 사용자 자료 또는 백업으로, 기존 절대 참조 경로를 보존하기 위해 이동하지 않았습니다.
 

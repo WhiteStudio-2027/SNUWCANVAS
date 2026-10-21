@@ -8,7 +8,7 @@ k.LoadResource.argtypes=[ctypes.c_void_p,ctypes.c_void_p];k.LoadResource.restype
 k.LockResource.argtypes=[ctypes.c_void_p];k.LockResource.restype=ctypes.c_void_p
 k.FreeLibrary.argtypes=[ctypes.c_void_p]
 def verify():
- h=k.LoadLibraryExW(str((Path(__file__).resolve().parents[1]/'.build/SNUWCANVAS.exe')),None,2)
+ h=k.LoadLibraryExW(str((Path(__file__).resolve().parents[2]/'SNUWCANVAS.exe')),None,2)
  assert h,'Executable missing'
  def res(n,t):
   r=k.FindResourceW(h,n,t);assert r,'Icon resource missing'

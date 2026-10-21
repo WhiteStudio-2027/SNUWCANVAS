@@ -10,7 +10,7 @@ import unittest
 from urllib.parse import urlsplit, parse_qs
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / '.build/SNUWCANVAS.exe'
+EXE = ROOT.parent / 'SNUWCANVAS.exe'
 
 
 @unittest.skipUnless(EXE.exists(), 'Build native client first')

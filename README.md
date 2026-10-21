@@ -4,7 +4,7 @@ Windows 네이티브 C++20 클라이언트입니다. Python/Tkinter/PyInstaller�
 이미지 캔버스와 패널은 Direct2D, 글자는 DirectWrite, 통신은 WinHTTP를 사용합니다.
 텍스트 편집·파일 선택은 Windows 기본 컨트롤을 사용합니다.
 
-작업 공간 루트의 `SNUWCANVAS.exe`를 실행하세요. 배포 ZIP에는 EXE 하나만 포함합니다.
+작업 공간 루트의 `SNUWCANVAS.exe` 하나를 실행·배포합니다. 별도 EXE 사본이나 ZIP은 생성하지 않습니다.
 서버와 ComfyUI의 Python 환경 및 API는 기존대로 유지됩니다.
 
 ## 사용
@@ -49,7 +49,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_native.ps1 -Publ
 
 폴더 구성과 보존 기준: [작업 공간 안내](docs/workspace.md).
 
-배포 결과는 저장소 루트 releases/에 고정 이름으로 저장하며 업데이트 시 기존 EXE를 덮어씁니다. 앱 실행 데이터 경로는 변경하지 않습니다.
+빌드는 작업 공간 루트 `SNUWCANVAS.exe` 하나를 갱신합니다. 앱 실행 데이터 경로는 변경하지 않습니다.
 
 ## 독립 저장소와 검사
 
@@ -57,8 +57,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_native.ps1 -Publ
 실제 설정·키·프로젝트·생성 이미지·빌드 결과는 .gitignore로 제외합니다.
 `python -m pip install -r requirements-dev.txt` 후 빌드하고 `python -m unittest discover -s tests -v`로 검사합니다.
 일반 빌드는 작업 공간 루트의 `SNUWCANVAS.exe`도 갱신합니다. 실행 중이면 앱을 종료한 뒤 다시 빌드하세요.
-`-Publish`는 작업 공간 `releases/SNUWCANVAS_client.zip`을 덮어씁니다. 다른 설치에 적용하려면 `-InstallDir "기존 설치 폴더"`를 함께 지정합니다.
-테스트용 빌드만 만들려면 `-BuildOnly`를 사용합니다. 설정·이미지·DB는 복사하거나 삭제하지 않습니다.
+`-Publish`는 이전 명령과 호환되도록 허용하지만 ZIP이나 EXE 사본을 만들지 않습니다. 테스트도 루트 EXE를 사용합니다.
+컴파일 결과는 `.build/SNUWCANVAS.next.exe`에 잠시 쓴 뒤 성공 시 루트 EXE를 교체합니다. 설정·이미지·DB는 복사하거나 삭제하지 않습니다.
+
+커뮤니티는 왼쪽 아래 **커뮤니티** 버튼으로 설정된 서버의 `/community/`를 브라우저에서 엽니다. 서버에서 `ACCOUNT_AUTH_ENABLED=1`, `COMMUNITY_ENABLED=1` 설정과 `community` 프런트엔드 빌드가 필요하며 웹에서 다시 로그인합니다.
 각 생성 작업은 기본 2시간의 전체 제한 시간이 있으며 설정 JSON의 `job_timeout_seconds`로 조절할 수 있습니다.
 중지 시 로컬 대기열과 통신을 취소하고 서버 취소 확인 결과를 표시합니다. 서버 연결이 끊기면 원격 중지는 확인할 수 없습니다.
 
@@ -112,7 +114,7 @@ STANDARD MODE는 기존 다크 디자인, HARDCORE MODE는 기본 배경·글자
 
 ## 배포판 생성 기본값
 
-새 설치 기본값은 현재 사용자의 SDXL 작업 설정에 맞춘 832×1216, 26 steps, CFG 5, euler_ancestral / normal, denoise 1, 무작위 seed, 1장입니다. Hires와 Ollama 프롬프트 보정은 기본 OFF로 두어 추가 패스와 모델 교체 비용을 줄입니다. Hires를 수동으로 켤 때 기본값은 1.5배, 추가 10 steps, denoise 0.35입니다. 기존 설정 파일과 프로젝트는 덮어쓰지 않습니다. ZIP에는 실행 파일만 포함하며 개인 키·서버 주소·프로젝트를 포함하지 않습니다.
+새 설치 기본값은 현재 사용자의 SDXL 작업 설정에 맞춘 832×1216, 26 steps, CFG 5, euler_ancestral / normal, denoise 1, 무작위 seed, 1장입니다. Hires와 Ollama 프롬프트 보정은 기본 OFF로 두어 추가 패스와 모델 교체 비용을 줄입니다. Hires를 수동으로 켤 때 기본값은 1.5배, 추가 10 steps, denoise 0.35입니다. 기존 설정 파일과 프로젝트는 덮어쓰지 않습니다. 배포 EXE에는 개인 키·프로젝트를 포함하지 않으며 기본 서버 주소만 내장합니다.
 
 SDXL 속도 프리셋은 빠르게 20 / 균형 26 / 고품질 32 steps이며 고품질만 Hires를 켭니다. FLUX 전용 steps·CFG·샘플러 규칙은 별도로 유지합니다. 이는 배포판의 시작 설정이며 모든 체크포인트의 최적값을 보장하지 않습니다. 실제 GPU 속도·화질 비교는 운영 모델에서 확인해야 합니다.
 

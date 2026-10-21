@@ -8,7 +8,7 @@ import threading
 import time
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
-EXE=ROOT/'.build/SNUWCANVAS.exe'
+EXE=ROOT.parent/'SNUWCANVAS.exe'
 @unittest.skipUnless(EXE.exists(),'Build client first')
 class ControlTests(unittest.TestCase):
     def test_stop_deadlines_download_failure_and_double_click(self):
