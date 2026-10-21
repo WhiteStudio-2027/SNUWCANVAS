@@ -28,5 +28,5 @@ void paintWelcome(){
  label(L"로그인 후 이미지 생성 서비스를 이용하세요.",{x+40,y+187,w-80,28},false,0x9695ad,12);
  button({x+40,y+242,w-80,42},L"로그인",[this]{accountSignIn();},true);
  button({x+40,y+296,w-80,42},L"계정 만들기",[this]{accountSignIn(true);});
- label(L"새 계정 · 안전 모드 · 이미지 20장",{x+40,y+361,w-80,28},false,0x9695ad,11);
+
 }

@@ -3,7 +3,7 @@ namespace snuw {
 void App::paint(){PAINTSTRUCT ps{};if(hwnd)BeginPaint(hwnd,&ps);try{renderer.hardcore=hardcore();if(hwnd){if(hardcore())SetPropW(hwnd,L"SnuwHardcore",(HANDLE)1);else RemovePropW(hwnd,L"SnuwHardcore");}renderer.attach(hwnd);renderer.target->SetDpi(96*dpi,96*dpi);renderer.target->BeginDraw();renderer.target->Clear(color(renderer.tone(0x111111)));buttons.clear();if(welcome){paintWelcome();renderer.end();if(hwnd)EndPaint(hwnd,&ps);return;}auto c=center(),g=card();
 
 
- navigationPaint();if(projectsOpen){ renderer.box({72,8,leftWidth-72,height-16},0x19191a,0x303033,6);label(L"SNUW",{82,18,leftWidth-162,29},true,0xb5c2ff,18);button({leftWidth-76,18,29,28},L"▱+",[this]{newFolder();});button({leftWidth-42,18,27,28},L"+",[this]{newProject();});
+ navigationPaint();if(projectsOpen){ renderer.box({72,8,leftWidth-72,height-16},0x19191a,0x303033,6);button({leftWidth-76,18,29,28},L"▱+",[this]{newFolder();});button({leftWidth-42,18,27,28},L"+",[this]{newProject();});
  projectRows=projectSidebarRows(store->doc,projectSearch?textOf(projectSearch):L"");projectArea={78,99,leftWidth-92,std::max(30.f,height-200)};projectContent=projectRows.size()*34.f+34;projectScroll=std::clamp(projectScroll,0.f,std::max(0.f,projectContent-projectArea.h));float py=projectArea.y-projectScroll;
  renderer.target->PushAxisAlignedClip(projectArea.d2d(),D2D1_ANTIALIAS_MODE_ALIASED);
  for(auto& row:projectRows){Rect r{projectArea.x,py,projectArea.w-6,30};row.rect=r;py+=34;if(r.y+r.h<projectArea.y||r.y>projectArea.y+projectArea.h)continue;
