@@ -1,6 +1,7 @@
 #pragma once
 #include "common.hpp"
 #include "project_organizer.hpp"
+#include "model_guard.hpp"
 namespace snuw {
 inline const std::vector<std::pair<std::string,std::wstring>> sections={{"prompt",L"통합"},{"character_prompt",L"캐릭터"},{"clothing_prompt",L"의상"},{"scene_prompt",L"장면·자세"},{"style_prompt",L"화풍"},{"other_prompt",L"기타"}};
 inline const std::vector<std::string> globalKeys={"api","api_key","caption_api","caption_api_key","content_mode","splash_minimum_enabled","auto_update"};
@@ -38,6 +39,6 @@ inline json controls(const json& cfg){json out=json::object();std::set<std::stri
  auto overrides=json::parse(str(cfg,"node_overrides","{}"));if(!overrides.is_object())throw std::runtime_error("노드 JSON은 객체여야 합니다.");if(!overrides.empty())out["node_overrides"]=overrides;
  auto number=[&](const char* k,double minimum,double maximum){if(out.contains(k)){double v=out[k];if(v<minimum||v>maximum)throw std::runtime_error(std::string("범위 오류: ")+k);}};
  number("steps",1,1e12);number("hires_steps",0,1e12);number("cfg",0,1e12);number("denoise",0,1);number("hires_denoise",0,1);number("hires_scale",1,1e12);number("clip_skip",-24,-1);number("tile_size",64,1e12);number("tile_overlap",0,1e12);number("lora_strength",-10,10);number("lora_clip_strength",-10,10);
- if(out.value("tile_overlap",64)>=out.value("tile_size",512))throw std::runtime_error("타일 겹침은 타일 크기보다 작아야 합니다.");return out;}
+ if(out.value("tile_overlap",64)>=out.value("tile_size",512))throw std::runtime_error("타일 겹침은 타일 크기보다 작아야 합니다.");return guardModelControls(cfg,out);}
 inline void validate(const json& cfg){auto prefix=str(cfg,"version");if(prefix.empty()||prefix.find_first_of("/\\:*?\"<>|\r\n")!=std::string::npos)throw std::runtime_error("파일 접두사를 확인하세요.");int width=std::stoi(str(cfg,"width")),height=std::stoi(str(cfg,"height")),count=std::stoi(str(cfg,"count"));int multiple=str(cfg,"workflow_profile").find("FLUX")!=std::string::npos?16:8;if(width<=0||height<=0||width%multiple||height%multiple)throw std::runtime_error("너비·높이는 양수이며 "+std::to_string(multiple)+"의 배수여야 합니다.");if(count<1)throw std::runtime_error("생성 장수는 1 이상이어야 합니다.");auto seed=std::stoll(str(cfg,"seed"));if(seed< -1)throw std::runtime_error("시드 범위 오류");controls(cfg);}
 }

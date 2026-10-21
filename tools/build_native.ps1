@@ -12,9 +12,11 @@ $legalPath = Join-Path $repoRoot ("server/legal/consent-" + $manifest.consent_ve
 $legal = (Get-Content -LiteralPath $legalPath -Raw -Encoding UTF8).Replace("`r`n", "`n")
 $publicKeyPath = Join-Path $repoRoot 'server/update-public.der'
 $publicHex = if (Test-Path -LiteralPath $publicKeyPath) { ([System.IO.File]::ReadAllBytes($publicKeyPath) | ForEach-Object { $_.ToString('x2') }) -join '' } else { '' }
+$modelGuards = Get-Content -LiteralPath (Join-Path $repoRoot 'server/src/snuwserver/model_guards.json') -Raw -Encoding UTF8
 $header = '#pragma once' + "`nnamespace snuw {`n" +
     'inline constexpr const char* CLIENT_VERSION = "' + $manifest.client_version + '";' + "`n" +
     'inline constexpr const char* UPDATE_PUBLIC_KEY_HEX = "' + $publicHex + '";' + "`n" +
+    'inline constexpr const char* MODEL_GUARDS_JSON = R"models(' + $modelGuards + ')models";' + "`n" +
     'inline constexpr const char* BUILTIN_CONSENT_VERSION = "' + $manifest.consent_version + '";' + "`n" +
     'inline constexpr const char* BUILTIN_CONSENT_TEXT = R"legal(' + $legal + ')legal";' + "`n}`n"
 [System.IO.File]::WriteAllText((Join-Path $clientRoot 'src/native/foundation_generated.hpp'), $header, [System.Text.UTF8Encoding]::new($false))

@@ -13,12 +13,12 @@ LearningLayout learningLayout(Rect c,Rect g){
  case 0:out.title=L"사용할 캐릭터 선택";out.hint=L"등록한 캐릭터로 다음 이미지를 만듭니다.";
   input("consistency_enabled",L"일관성 사용",{},true);input("consistency_profile",L"캐릭터 / 대상",profileChoices(false));input("style_profile",L"스타일 (선택 사항)",profileChoices(true));actions({{1,L"새로고침",false},{2,L"저장",true},{3,L"새 캐릭터 등록",false}});break;
  case 1:out.title=L"새 캐릭터 등록";out.hint=L"이름과 항상 유지할 외형을 적어주세요.";
-  input("profile_name",L"프로필 이름");input("profile_kind",L"종류",{L"character",L"product",L"brand",L"style"});input("profile_description",L"유지할 외형 (영문)");input("profile_pipeline",L"기반 모델",{L"sdxl",L"illustrious"});input("profile_auto_train",L"이미지가 모이면 자동 학습",{},true);actions({{4,L"프로필 등록",true}});break;
+  input("profile_name",L"프로필 이름");input("profile_kind",L"종류",{L"character",L"product",L"brand",L"style"});input("profile_description",L"유지할 외형 (영문)");input("profile_pipeline",L"기반 모델",{L"sdxl",L"illustrious"});if(developer())input("profile_auto_train",L"이미지가 모이면 자동 학습",{},true);actions({{4,L"프로필 등록",true}});break;
  case 2:out.title=L"학습 이미지";out.hint=L"같은 캐릭터의 서로 다른 이미지 5장부터 시작하세요.";
   input("profile_target",L"캐릭터",managed);actions({{6,L"등록 이미지 확인",false}});
   out.referencesY=y+8;{auto key=profileId(str(store->settings,"profile_target"));auto found=referenceProfiles.find(key);size_t count=found==referenceProfiles.end()?0:found->second.value("references",json::array()).size();y+=92+std::min(size_t(4),count)*37;}
   input("profile_caption",L"이 이미지의 설명 (영문 · 선택)");actions({{5,L"이미지 추가",true}});
-  actions({{7,L"학습 시작",true},{8,L"학습 중지",false}});break;
+  if(developer())actions({{7,L"학습 시작",true},{8,L"학습 중지",false}});break;
  default:out.title=L"자동 캡션 테스트";out.hint=L"로그인한 서버에서 이미지 설명을 만듭니다.";
 actions({{18,L"모델 조회",false}});
   {std::vector<std::wstring> choices={L"모델을 조회하세요"};for(auto& row:captionModels)choices.push_back(wide(str(row,"name")));input("caption_model",L"비전 모델",choices);}
