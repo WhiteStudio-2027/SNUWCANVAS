@@ -4,7 +4,7 @@ Windows 네이티브 C++20 클라이언트입니다. Python/Tkinter/PyInstaller�
 이미지 캔버스와 패널은 Direct2D, 글자는 DirectWrite, 통신은 WinHTTP를 사용합니다.
 텍스트 편집·파일 선택은 Windows 기본 컨트롤을 사용합니다.
 
-`dist/SNUWCANVAS.exe`를 실행하세요. 배포 ZIP에는 EXE 하나만 포함합니다.
+작업 공간 루트의 `SNUWCANVAS.exe`를 실행하세요. 배포 ZIP에는 EXE 하나만 포함합니다.
 서버와 ComfyUI의 Python 환경 및 API는 기존대로 유지됩니다.
 
 ## 사용
@@ -30,7 +30,7 @@ EXE 옆 `data/config`, `data/prompts`, `data/generated`를 사용합니다.
 ## 소스와 빌드
 
 클라이언트 소스: `src/native/` (이전 Python 클라이언트 소스는 제거했습니다.)
-서버는 별도 저장소로 관리합니다. 클라이언트 빌드는 서버 폴더에 의존하지 않습니다.
+서버는 별도 저장소로 관리합니다. 빌드는 같은 작업 공간의 서버 버전·동의서·모델 설정을 포함합니다.
 
 빌드 도구: MSYS2 UCRT64 MinGW-w64 g++ / windres.
 
@@ -53,7 +53,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_native.ps1 -Publ
 이 폴더 자체를 Git 저장소 루트로 사용합니다. `assets`, `src`, `tools`, `tests`, `docs`를 함께 올립니다.
 실제 설정·키·프로젝트·생성 이미지·빌드 결과는 .gitignore로 제외합니다.
 `python -m pip install -r requirements-dev.txt` 후 빌드하고 `python -m unittest discover -s tests -v`로 검사합니다.
-`-Publish`는 dist 안의 고정 이름 EXE/ZIP을 덮어씁니다. 기존 설치에 적용하려면 `-InstallDir "기존 설치 폴더"`를 함께 지정합니다.
+일반 빌드는 작업 공간 루트의 `SNUWCANVAS.exe`도 갱신합니다. 실행 중이면 앱을 종료한 뒤 다시 빌드하세요.
+`-Publish`는 작업 공간 `releases/SNUWCANVAS_client.zip`을 덮어씁니다. 다른 설치에 적용하려면 `-InstallDir "기존 설치 폴더"`를 함께 지정합니다.
+테스트용 빌드만 만들려면 `-BuildOnly`를 사용합니다. 설정·이미지·DB는 복사하거나 삭제하지 않습니다.
 각 생성 작업은 기본 2시간의 전체 제한 시간이 있으며 설정 JSON의 `job_timeout_seconds`로 조절할 수 있습니다.
 중지 시 로컬 대기열과 통신을 취소하고 서버 취소 확인 결과를 표시합니다. 서버 연결이 끊기면 원격 중지는 확인할 수 없습니다.
 
