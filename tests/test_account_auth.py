@@ -14,11 +14,6 @@ EXE=ROOT.parent/'SNUWCANVAS.exe'
 class Handler(http.server.BaseHTTPRequestHandler):
     calls=[]
     def log_message(self,*args):pass
-    def do_GET(self):
-        filtered=self.path.startswith('/filtered/')
-        data=b'<html>network blocked</html>' if filtered else json.dumps({'server_version':'v2.0.0','min_client_version':'v2.0.0','latest_client_version':'v2.0.0'}).encode()
-        self.send_response(200);self.send_header('Content-Type','text/html' if filtered else 'application/json')
-        self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
     def do_POST(self):
         body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         type(self).calls.append((self.path,body,bool(self.headers.get('X-Client-Id'))))
