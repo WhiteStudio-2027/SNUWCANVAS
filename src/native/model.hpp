@@ -35,7 +35,7 @@ inline json controls(const json& cfg){json out=json::object();std::set<std::stri
  for(auto& key:strings){auto value=str(cfg,key);if(!value.empty()&&value!="서버 기본"&&value!="사용 안 함"&&value!="기본과 동일")out[key]=value;}
  auto mode=str(cfg,"hires_mode");if(mode=="확대만")out["hires_mode"]="upscale";
  auto enabled=str(cfg,"hires_enabled");if(enabled!="서버 기본")out["hires_enabled"]=enabled=="켜기";
- std::map<std::string,std::string> pipeline={{"기존 SDXL","sdxl"},{"애니 · Illustrious XL","illustrious"},{"문장·실사 · FLUX 빠르게","flux2_klein"},{"문장·실사 · FLUX 고품질","flux2_klein_base"}};
+ std::map<std::string,std::string> pipeline={{"픽셀아트 · 8× 격자","pixel_art"},{"기존 SDXL","sdxl"},{"애니 · Illustrious XL","illustrious"},{"문장·실사 · FLUX 빠르게","flux2_klein"},{"문장·실사 · FLUX 고품질","flux2_klein_base"}};
  auto p=pipeline.find(str(cfg,"workflow_profile"));if(p==pipeline.end())throw std::runtime_error("생성 모델 오류");if(p->second!="sdxl")out["pipeline"]=p->second;
  auto overrides=json::parse(str(cfg,"node_overrides","{}"));if(!overrides.is_object())throw std::runtime_error("노드 JSON은 객체여야 합니다.");if(!overrides.empty())out["node_overrides"]=overrides;
  auto number=[&](const char* k,double minimum,double maximum){if(out.contains(k)){double v=out[k];if(v<minimum||v>maximum)throw std::runtime_error(std::string("범위 오류: ")+k);}};

@@ -57,6 +57,6 @@ inline void openPath(const fs::path& path){ShellExecuteW(nullptr,L"open",path.c_
 inline std::string mime(const fs::path& p){auto e=p.extension().wstring();std::transform(e.begin(),e.end(),e.begin(),::towlower);if(e==L".jpg"||e==L".jpeg")return "image/jpeg";if(e==L".webp")return "image/webp";if(e==L".bmp")return "image/bmp";return "image/png";}
 inline bool imagePath(const fs::path& p){auto e=p.extension().wstring();std::transform(e.begin(),e.end(),e.begin(),::towlower);return e==L".png"||e==L".jpg"||e==L".jpeg"||e==L".webp"||e==L".bmp"||e==L".gif"||e==L".tif"||e==L".tiff"||e==L".ico";}
 struct Rect{float x=0,y=0,w=0,h=0;bool hit(float a,float b)const{return a>=x&&b>=y&&a<x+w&&b<y+h;}D2D1_RECT_F d2d()const{return D2D1::RectF(x,y,x+w,y+h);}};
-inline D2D1_COLOR_F color(unsigned rgb,float alpha=1){return D2D1::ColorF(rgb,alpha);}
+inline D2D1_COLOR_F color(unsigned rgb,float alpha=1){unsigned r=(rgb>>16)&255,g=(rgb>>8)&255,b=rgb&255;if(!(r>g*1.3f&&r>b*1.2f)){unsigned v=unsigned(.2126f*r+.7152f*g+.0722f*b);rgb=(v<<16)|(v<<8)|v;}return D2D1::ColorF(rgb,alpha);}
 inline void check(HRESULT hr,const char* message){if(FAILED(hr))throw std::runtime_error(message);}
 }

@@ -4,7 +4,7 @@
 namespace snuw {
 inline void drawDarkChoice(HDC dc,RECT rect,const std::wstring& text,HFONT font,bool hot,bool focus,bool open,bool hardcore=false){
  auto background=CreateSolidBrush(RGB(34,34,36));FillRect(dc,&rect,background);DeleteObject(background);
- auto fill=CreateSolidBrush(hot||open?RGB(58,58,64):RGB(46,46,50));auto pen=CreatePen(PS_SOLID,1,hardcore?RGB(137,73,77):focus||open?RGB(181,194,255):hot?RGB(101,101,115):RGB(67,67,74));auto oldBrush=SelectObject(dc,fill),oldPen=SelectObject(dc,pen);RoundRect(dc,rect.left,rect.top,rect.right,rect.bottom,7,7);SelectObject(dc,oldBrush);SelectObject(dc,oldPen);DeleteObject(fill);DeleteObject(pen);
+ auto fill=CreateSolidBrush(hot||open?RGB(58,58,64):RGB(46,46,50));auto pen=CreatePen(PS_SOLID,1,hardcore?RGB(137,73,77):focus||open?RGB(224,224,224):hot?RGB(101,101,115):RGB(67,67,74));auto oldBrush=SelectObject(dc,fill),oldPen=SelectObject(dc,pen);RoundRect(dc,rect.left,rect.top,rect.right,rect.bottom,7,7);SelectObject(dc,oldBrush);SelectObject(dc,oldPen);DeleteObject(fill);DeleteObject(pen);
  auto oldFont=SelectObject(dc,font);SetBkMode(dc,TRANSPARENT);SetTextColor(dc,RGB(229,229,231));RECT label=rect;int height=rect.bottom-rect.top;label.left+=std::max(8,height/3);label.right-=height;DrawTextW(dc,text.c_str(),int(text.size()),&label,DT_SINGLELINE|DT_VCENTER|DT_END_ELLIPSIS|DT_NOPREFIX);SelectObject(dc,oldFont);
  int x=rect.right-height/2,y=(rect.top+rect.bottom)/2;auto arrow=CreatePen(PS_SOLID,2,RGB(162,162,174));oldPen=SelectObject(dc,arrow);MoveToEx(dc,x-4,y-2,nullptr);LineTo(dc,x,y+2);LineTo(dc,x+4,y-2);SelectObject(dc,oldPen);DeleteObject(arrow);
 }
