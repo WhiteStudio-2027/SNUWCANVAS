@@ -4,7 +4,7 @@
 1 RT_MANIFEST ".build/windows.manifest"
 201 RCDATA "assets/splash.png"
 202 RCDATA "assets/welcome-background.png"
-203 RCDATA "assets/app.ico"
+203 RCDATA "assets/welcome-logo.png"
 211 RCDATA "assets/fonts/NotoSansKR-Regular.ttf"
 212 RCDATA "assets/fonts/NotoSansKR-Bold.ttf"
 213 RCDATA "assets/fonts/GoogleSansCode-Regular.ttf"
