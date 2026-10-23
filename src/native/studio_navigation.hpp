@@ -4,13 +4,13 @@ HWND navTooltip=nullptr;std::vector<std::wstring> navHintTexts;
 std::vector<std::pair<int,std::wstring>> navigationPages()const{
  std::vector<std::pair<int,std::wstring>> out;
  const std::vector<std::wstring> names={L"이미지 생성",L"참조 이미지",L"생성 설정",L"진행 로그",L"고급 설정",L"이미지 보정",L"자연어 편집",L"일관성",L"학습",L"서버 이미지"};
- for(int i=0;i<10;i++)if((i!=7&&i!=8)||developer())out.push_back({i,names[i]});return out;
+ for(int i=0;i<10;i++)if((i!=7&&i!=8)||developer())out.push_back({i,names[i]});if(developer())out.push_back({11,L"개발자 관리"});return out;
 }
 void navigationPaint(){
  renderer.box({8,8,48,height-16},0x19191a,0x303033,10);
  auto tile=[&](Rect r,int glyph,bool active,std::function<void()> command){renderer.box(r,active?0x34343b:0x19191a,0,8);icon({r.x+9,r.y+9,16,16},glyph,active?0xb5c2ff:0x999eaf);buttons.push_back({r,L"",command,false});};
  tile({15,20,34,34},11,projectsOpen,[this]{save();projectsOpen=!projectsOpen;leftWidth=projectsOpen?260.f:64.f;autoWorkspace=true;rebuild(false);});
- const int glyphs[]={0,1,2,9,4,6,7,10,8,15};int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*36.f,34,34},glyphs[id],id==page,[this,id]{setPage(id);});row++;}
+ const int glyphs[]={0,1,2,9,4,6,7,10,8,15};int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*36.f,34,34},id==11?4:glyphs[id],id==page,[this,id]{setPage(id);if(id==11&&!developerBusy)developerFetch();});row++;}
  float y=height-206;tile({15,y,34,34},13,false,[this]{auto address=wide(joinUrl(str(store->settings,"api"),"/community/"));if((INT_PTR)ShellExecuteW(hwnd,L"open",address.c_str(),nullptr,nullptr,SW_SHOWNORMAL)<=32)throw std::runtime_error("브라우저를 열 수 없습니다.");});tile({15,y+40,34,34},12,false,[this]{save();status=L"저장 완료";});tile({15,y+80,34,34},11,false,[this]{projectMenu();});tile({15,y+120,34,34},14,page==10,[this]{setPage(10);});tile({15,y+160,34,34},5,page==13,[this]{accountMenu();});
 }
 void updateNavigationTips(){
