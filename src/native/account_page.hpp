@@ -17,7 +17,7 @@ void accountPage(Rect c){
  button({c.x+18,410,c.w-36,36},L"프로필 저장",[this]{featureRequest("account_profile","PATCH","/api/auth/me",json{{"nickname",utf8(textOf(profileNickname))},{"bio",normalizedText(profileBio)}});},true,!learningBusy);
  label(L"권한  ·  "+wide(str(accountProfile,"role")),{c.x+18,470,c.w-36,26});
  auto total=quotaUsage.value("total",json());label(total.is_number()?L"남은 생성  ·  "+std::to_wstring(quotaUsage.value("remaining",int64_t(0)))+L" / "+std::to_wstring(total.get<int64_t>())+L"장":L"사용 한도  ·  무제한",{c.x+18,506,c.w-36,26},false,0x99999f,12);
- bool ready=!engine->busy&&!learningBusy&&!developerBusy&&!captionRunning;
+ bool ready=!accountWorkspaceBusy();
  button({c.x+18,560,c.w-36,34},L"로그아웃",[this]{featureRequest("account_logout","POST",accountLogoutPath(false));},false,ready);
  button({c.x+18,606,c.w-36,34},L"모든 기기에서 로그아웃",[this]{if(MessageBoxW(hwnd,L"모든 기기의 로그인 세션을 종료할까요?",L"로그아웃",MB_YESNO|MB_ICONQUESTION)==IDYES)featureRequest("account_logout","POST",accountLogoutPath(true));},false,ready);
 }
