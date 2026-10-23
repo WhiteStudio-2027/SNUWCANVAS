@@ -6,19 +6,21 @@ std::vector<std::pair<int,std::wstring>> navigationPages()const{
  const std::vector<std::wstring> names={L"이미지 생성",L"참조 이미지",L"생성 설정",L"진행 로그",L"고급 설정",L"이미지 보정",L"자연어 편집",L"일관성",L"학습",L"서버 이미지"};
  for(int i=0;i<10;i++)if((i!=7&&i!=8)||developer())out.push_back({i,names[i]});if(developer())out.push_back({11,L"개발자 관리"});return out;
 }
+float navigationStep()const{return std::clamp((height-324)/std::max(1.f,float(navigationPages().size()-1)),24.f,36.f);}
 void navigationPaint(){
  renderer.box({8,8,48,height-16},0x19191a,0x303033,10);
  auto tile=[&](Rect r,int glyph,bool active,std::function<void()> command){renderer.box(r,active?0x34343b:0x19191a,0,8);icon({r.x+9,r.y+9,16,16},glyph,active?0xb5c2ff:0x999eaf);buttons.push_back({r,L"",command,false});};
  tile({15,20,34,34},11,projectsOpen,[this]{save();projectsOpen=!projectsOpen;leftWidth=projectsOpen?260.f:64.f;autoWorkspace=true;rebuild(false);});
- const int glyphs[]={0,1,2,9,4,6,7,10,8,15};int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*36.f,34,34},id==11?4:glyphs[id],id==page,[this,id]{setPage(id);if(id==11&&!developerBusy)developerFetch();});row++;}
+ const int glyphs[]={0,1,2,9,4,6,7,10,8,15};int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*navigationStep(),34,34},id==11?4:glyphs[id],id==page,[this,id]{setPage(id);if(id==11&&!developerBusy)developerFetch();});row++;}
  float y=height-206;tile({15,y,34,34},13,false,[this]{auto address=wide(joinUrl(str(store->settings,"api"),"/community/"));if((INT_PTR)ShellExecuteW(hwnd,L"open",address.c_str(),nullptr,nullptr,SW_SHOWNORMAL)<=32)throw std::runtime_error("브라우저를 열 수 없습니다.");});tile({15,y+40,34,34},12,false,[this]{save();status=L"저장 완료";});tile({15,y+80,34,34},11,false,[this]{projectMenu();});tile({15,y+120,34,34},14,page==10,[this]{setPage(10);});tile({15,y+160,34,34},5,page==13,[this]{accountMenu();});
 }
 void updateNavigationTips(){
+ if(navTooltip&&!welcome){auto pages=navigationPages();for(size_t i=0;i<navHintTexts.size();i++){float y=i==0?20.f:i<=pages.size()?76+(i-1)*navigationStep():height-206+(i-pages.size()-1)*40.f;TOOLINFOW tool{sizeof tool};tool.hwnd=hwnd;tool.uId=i+1;tool.rect={LONG(15*dpi),LONG(y*dpi),LONG(49*dpi),LONG((y+34)*dpi)};SendMessageW(navTooltip,TTM_NEWTOOLRECTW,0,(LPARAM)&tool);}return;}
  if(navTooltip)DestroyWindow(navTooltip);navTooltip=nullptr;navHintTexts.clear();if(!hwnd||welcome)return;
  auto pages=navigationPages();navHintTexts.reserve(20);navHintTexts.push_back(L"프로젝트 목록");for(auto& p:pages)navHintTexts.push_back(p.second);navHintTexts.push_back(L"커뮤니티");navHintTexts.push_back(L"프로젝트 저장");navHintTexts.push_back(L"프로젝트 관리");navHintTexts.push_back(L"전체 설정");navHintTexts.push_back(L"내 계정");
  navTooltip=CreateWindowExW(WS_EX_TOPMOST,TOOLTIPS_CLASSW,nullptr,WS_POPUP|TTS_ALWAYSTIP|TTS_NOPREFIX,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,hwnd,nullptr,GetModuleHandle(nullptr),nullptr);
  SendMessageW(navTooltip,TTM_SETDELAYTIME,TTDT_INITIAL,350);SendMessageW(navTooltip,TTM_SETMAXTIPWIDTH,0,240);SetWindowTheme(navTooltip,L"DarkMode_Explorer",nullptr);
- for(size_t i=0;i<navHintTexts.size();i++){float y=i==0?20.f:i<=pages.size()?76+(i-1)*36.f:height-206+(i-pages.size()-1)*40.f;TOOLINFOW tool{sizeof tool};tool.uFlags=TTF_SUBCLASS;tool.hwnd=hwnd;tool.uId=i+1;tool.rect={LONG(15*dpi),LONG(y*dpi),LONG(49*dpi),LONG((y+34)*dpi)};tool.lpszText=navHintTexts[i].data();SendMessageW(navTooltip,TTM_ADDTOOLW,0,(LPARAM)&tool);}
+ for(size_t i=0;i<navHintTexts.size();i++){float y=i==0?20.f:i<=pages.size()?76+(i-1)*navigationStep():height-206+(i-pages.size()-1)*40.f;TOOLINFOW tool{sizeof tool};tool.uFlags=TTF_SUBCLASS;tool.hwnd=hwnd;tool.uId=i+1;tool.rect={LONG(15*dpi),LONG(y*dpi),LONG(49*dpi),LONG((y+34)*dpi)};tool.lpszText=navHintTexts[i].data();SendMessageW(navTooltip,TTM_ADDTOOLW,0,(LPARAM)&tool);}
 }
 void paintWelcome(){
  browser={};previewRect={};accountPopover=false;
