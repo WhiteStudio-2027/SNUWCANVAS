@@ -23,7 +23,7 @@ BEGIN
    VALUE "FileDescription", "SNUWCANVAS"
    VALUE "ProductName", "snuwcanvas"
    VALUE "FileVersion", SNUW_VERSION_STRING
-   VALUE "ProductVersion", SNUW_VERSION_STRING
+   VALUE "ProductVersion", SNUW_DISPLAY_VERSION
    VALUE "OriginalFilename", "SNUWCANVAS.exe"
   END
  END
