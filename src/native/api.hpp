@@ -7,6 +7,17 @@ struct Internet {HINTERNET h=nullptr;Internet()=default;explicit Internet(HINTER
 struct Url {std::wstring host,path;INTERNET_PORT port;bool secure;explicit Url(const std::string& value){auto s=wide(value);URL_COMPONENTS u{};u.dwStructSize=sizeof u;u.dwHostNameLength=u.dwUrlPathLength=u.dwExtraInfoLength=DWORD(-1);if(!WinHttpCrackUrl(s.c_str(),0,0,&u)||(u.nScheme!=INTERNET_SCHEME_HTTP&&u.nScheme!=INTERNET_SCHEME_HTTPS)||u.dwUserNameLength||u.dwPasswordLength)throw std::runtime_error("HTTP(S) 서버 주소를 확인하세요.");host.assign(u.lpszHostName,u.dwHostNameLength);path.assign(u.lpszUrlPath,u.dwUrlPathLength);if(u.dwExtraInfoLength)path.append(u.lpszExtraInfo,u.dwExtraInfoLength);if(path.empty())path=L"/";port=u.nPort;secure=u.nScheme==INTERNET_SCHEME_HTTPS;}};
 inline constexpr const char* serverHtmlError="서버 대신 웹 페이지가 응답했습니다. 네트워크 차단 여부를 운영자에게 확인하세요.";
 inline constexpr const char* serverJsonError="서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도하거나 운영자에게 문의하세요.";
+inline std::string userError(const std::string& message){
+ if(message.find("restricted to standard")!=std::string::npos)return "이 계정의 하드코어 권한을 확인하지 못했습니다. 다시 로그인하거나 관리자에게 문의하세요.";
+ if(message.find("HTTP 401")!=std::string::npos)return "로그인이 만료되었습니다. 다시 로그인하세요.";
+ if(message.find("HTTP 403")!=std::string::npos||message.find("안전 모드")!=std::string::npos)return "권한 또는 콘텐츠 검사로 요청이 제한되었습니다. 현재 모드와 입력 내용을 확인하세요.";
+ if(message.find("HTTP 429")!=std::string::npos)return "서버 요청이 많습니다. 잠시 후 다시 시도하세요.";
+ if(message.find("HTTP 5")!=std::string::npos)return "서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도하세요.";
+ if(message.find("json")!=std::string::npos||message.find("{")!=std::string::npos||message.find("[")!=std::string::npos)return serverJsonError;
+ if(message=="stoi"||message=="stod"||message=="stoll")return "숫자 설정값을 확인하세요.";
+ if(message.size()>400)return "요청 처리 중 오류가 발생했습니다. 설정을 확인한 뒤 다시 시도하세요.";
+ return message;
+}
 struct Response {DWORD code=0;std::string data;std::string retry;std::string media;json object()const{auto type=media;std::transform(type.begin(),type.end(),type.begin(),[](unsigned char c){return char(std::tolower(c));});if(type.find("text/html")!=std::string::npos)throw std::runtime_error(serverHtmlError);if(data.empty())return json::object();auto value=json::parse(data,nullptr,false);if(value.is_discarded())throw std::runtime_error(serverJsonError);return value;} };
 inline std::string localAccountScope(const std::string& server,const std::string& account){if(account.empty()||account.size()>200)throw std::runtime_error("로그인 계정 식별자를 확인할 수 없습니다.");Url url(server);auto host=url.host;std::transform(host.begin(),host.end(),host.begin(),::towlower);return sha256(std::string(url.secure?"https://":"http://")+utf8(host)+":"+std::to_string(url.port)+"\n"+account);}
 inline bool localOutputAllowed(const json& cfg,const fs::path& file){if(str(cfg,"_local_account_scope").empty())return true;try{auto root=fs::weakly_canonical(fs::path(wide(str(cfg,"_local_workspace_root"))));auto path=fs::weakly_canonical(file);auto relative=path.lexically_relative(root.parent_path());return relative.empty()||relative.is_absolute()||*relative.begin()==L".."||*relative.begin()==root.filename();}catch(...){return false;}}
@@ -100,7 +111,7 @@ public:
   std::string api,key,token,jid,project;{std::lock_guard lock(mutex);tasks.clear();cancel=true;cv.notify_all();if(!busy||cancelling.exchange(true))return;api=jobApi;key=jobKey;token=activeRequest;jid=jobId;project=activeProject;}
   event({"cancelling",project,"로컬 작업 중지 · 서버 취소 전송 중",{}});
   if(cancelWorker.joinable())cancelWorker.join();cancelWorker=std::thread([this,api,key,token,jid,project]{bool confirmed=false;std::string reason;for(int attempt=0;attempt<3&&!confirmed;attempt++){try{try{if(request("POST",joinUrl(api,"/client-requests/"+token+"/cancel"),key,"{}","application/json",nullptr,1024*1024,5000).code==429)throw std::runtime_error("서버 취소 요청 제한 (HTTP 429)");}catch(const std::exception& e){if(std::string(e.what()).find("HTTP 404")==std::string::npos||jid.empty())throw;if(request("POST",joinUrl(api,"/jobs/"+jid+"/cancel"),key,"{}","application/json",nullptr,1024*1024,5000).code==429)throw std::runtime_error("서버 취소 요청 제한 (HTTP 429)");}confirmed=true;}catch(const std::exception& e){reason=e.what();if(attempt<2)std::this_thread::sleep_for(std::chrono::milliseconds(250));}}
-   event({"cancelled",project,confirmed?"중지됨 · 서버 취소 확인":"로컬 중지됨 · 서버 취소 확인 실패: "+reason,{{"confirmed",confirmed}}});cancelling=false;
+   event({"cancelled",project,confirmed?"중지됨 · 서버 취소 확인":"로컬 작업은 중지했지만 서버 중지는 확인하지 못했습니다.",{{"confirmed",confirmed}}});cancelling=false;
   });
  }
  bool wait(int ms){for(int i=0;i<ms/50&&!stopping&&!cancel&&std::chrono::steady_clock::now()<networkDeadline;i++)std::this_thread::sleep_for(std::chrono::milliseconds(50));return !stopping&&!cancel;}
@@ -115,7 +126,7 @@ public:
     auto j=json::parse(line);auto status=str(j,"state");event({"progress",t.project,status,j});auto results=j.value("results",json::array());
     if(!t.editing)for(size_t i=received;i<results.size();++i){download(t,results[i],str(t.cfg,"version","v9")+"_");received++;}
     if(status=="completed"){if(t.editing&&!results.empty()){download(t,results.back(),"edit_");event({"history_ready",t.project,session,request("GET",joinUrl(base,"/sessions/"+session+"/history"),key).object()});event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});}terminal=true;}
-    else if(status=="failed"||status=="cancelled"){if(t.editing)event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});throw std::runtime_error(str(j,"error","서버 작업 중단"));}
+    else if(status=="failed"||status=="cancelled"){if(t.editing)event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});throw std::runtime_error(status=="cancelled"?"서버에서 작업이 취소되었습니다.":userError(str(j,"error","서버에서 이미지 생성을 완료하지 못했습니다.")));}
     else if(status!="queued"&&status!="running")throw std::runtime_error("알 수 없는 서버 작업 상태: "+status);
    }
   };
@@ -124,6 +135,6 @@ public:
   if(!terminal)throw std::runtime_error("서버 상태 연결이 완료 전에 끊겼습니다. 진행 상태를 반복 조회하지 않습니다.");
 
  }
- void loop(){while(!stopping){Task task;{std::unique_lock lock(mutex);cv.wait(lock,[&]{return stopping||!tasks.empty();});if(stopping)return;task=std::move(tasks.front());tasks.pop_front();activeProject=task.project;activeRequest=task.requestId;jobApi=str(task.cfg,"api");jobKey=str(task.cfg,"api_key");jobId.clear();cancel=false;busy=true;}event({"started",task.project,"",{}});try{run(task);event({"done",task.project,cancel?"중지됨":"완료",{}});}catch(const std::exception& e){if(!cancel){event({"error",task.project,e.what(),{}});stop();}}busy=false;}}
+ void loop(){while(!stopping){Task task;{std::unique_lock lock(mutex);cv.wait(lock,[&]{return stopping||!tasks.empty();});if(stopping)return;task=std::move(tasks.front());tasks.pop_front();activeProject=task.project;activeRequest=task.requestId;jobApi=str(task.cfg,"api");jobKey=str(task.cfg,"api_key");jobId.clear();cancel=false;busy=true;}event({"started",task.project,"",{}});try{run(task);event({"done",task.project,cancel?"중지됨":"완료",{}});}catch(const std::exception& e){if(!cancel){event({"error",task.project,userError(e.what()),{}});std::lock_guard lock(mutex);tasks.clear();}}busy=false;}}
 };
 }

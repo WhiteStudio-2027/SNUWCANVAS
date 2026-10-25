@@ -20,10 +20,11 @@ class ControlTests(unittest.TestCase):
                 try:markers[mode].write_text('started',encoding='utf-8')
                 except OSError:pass
             def reply(self,value,status=200,stream=False,hold=False):
-                data=json.dumps(value).encode()+(b'\n' if stream else b'');self.send_response(status)
-                if not stream:self.send_header('Content-Length',str(len(data)))
-                self.end_headers()
+                data=json.dumps(value).encode()+(b'\n' if stream else b'')
                 try:
+                    self.send_response(status)
+                    if not stream:self.send_header('Content-Length',str(len(data)))
+                    self.end_headers()
                     self.wfile.write(data);self.wfile.flush()
                     if hold:time.sleep(5)
                 except (BrokenPipeError,ConnectionResetError,OSError):pass
@@ -48,9 +49,9 @@ class ControlTests(unittest.TestCase):
                     path=Path(name);markers[mode]=path/'network-started';base=f'http://127.0.0.1:{server.server_port}/{mode}'
                     result=subprocess.run([str(EXE),'--control-test',str(path),base,mode],timeout=15,creationflags=subprocess.CREATE_NO_WINDOW)
                     report=json.loads((path/'native-control-result.json').read_text(encoding='utf-8'))
-                    self.assertEqual(result.returncode,0,report);self.assertTrue(report['confirmed']);self.assertFalse(report['gui_opened'])
+                    self.assertEqual(result.returncode,0,report);self.assertEqual(report['confirmed'],mode in ('submit','poll','download'));self.assertFalse(report['gui_opened'])
                     self.assertEqual(sum(method=='POST' and url==f'/{mode}/jobs' for method,url in calls),1)
                     self.assertLessEqual(sum(method=='GET' and url.endswith('/events') and url.startswith(f'/{mode}/') for method,url in calls),1)
                     self.assertFalse(any(method=='GET' and url==f'/{mode}/jobs/test-job' for method,url in calls))
-                    self.assertTrue(any(method=='POST' and url.startswith(f'/{mode}/client-requests/') for method,url in calls))
+                    self.assertEqual(any(method=='POST' and url.startswith(f'/{mode}/client-requests/') for method,url in calls),mode in ('submit','poll','download'))
         finally:server.shutdown();server.server_close();thread.join(timeout=2)

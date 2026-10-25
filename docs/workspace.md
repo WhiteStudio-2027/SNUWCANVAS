@@ -9,3 +9,7 @@
 루트 SNUWCANVAS.exe는 현재 PC의 설치 실행 파일입니다. data/, config/, prompts/, generated/, archive/는 사용자 자료 또는 백업으로, 기존 절대 참조 경로를 보존하기 위해 이동하지 않았습니다.
 
 자세한 실행·업데이트 방법은 [저장소 안내](../README.md)를 참고하세요. 배포물에는 실제 설정·API 키·사용자 이미지·기록 DB를 넣지 않습니다.
+
+서버는 기존 설치의 Git 저장소에서 `git pull --ff-only` 후 `bash run.sh`로 갱신합니다.
+`server/dist`의 전체/업데이트 ZIP은 현재 배포 방식에서 사용하지 않습니다.
+과거 ZIP 업데이트 도구는 호환용 코드로 보존하지만 자동으로 실행하지 않습니다.

@@ -55,6 +55,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_native.ps1 -Publ
 
 빌드는 작업 공간 루트 `SNUWCANVAS.exe` 하나를 갱신합니다. 앱 실행 데이터 경로는 변경하지 않습니다.
 
+서버 변경이 함께 필요한 경우 서버 저장소의 소스도 Git으로 갱신하고 재시작합니다.
+클라이언트 빌드로 서버 ZIP을 만들거나 운영 서버의 설정·데이터를 덮어쓰지 않습니다.
+
 ## 독립 저장소와 검사
 
 이 폴더 자체를 Git 저장소 루트로 사용합니다. `assets`, `src`, `tools`, `tests`, `docs`를 함께 올립니다.

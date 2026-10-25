@@ -30,7 +30,16 @@ inline int studioTest(const fs::path& folder){try{
  app.setPage(10);app.paint();for(auto& f:app.fields)if(f.key=="workflow_profile"||f.key=="genre"||f.key=="render_mode")throw std::runtime_error("Global settings retained generation controls");
  app.switchProject(store->active);app.paint();if(app.page!=0||!app.positive||!app.negative)throw std::runtime_error("Channel selection did not open generation");
  auto savedSettings=store->settings;store->settings["workflow_profile"]="픽셀아트";store->settings["pixel_width"]="64";store->settings["pixel_height"]="128";app.rebuild(false);bool pw=false,ph=false;for(auto& f:app.fields){if(f.key=="pixel_width")pw=IsWindowEnabled(f.hwnd);if(f.key=="pixel_height")ph=IsWindowEnabled(f.hwnd);}if(!pw||!ph||!modelLocked(store->settings,"steps")||!modelLocked(store->settings,"cfg"))throw std::runtime_error("Pixel resolution controls or fixed settings missing");auto c=snuw::controls(store->settings);if(c["pixel_width"]!=64||c["pixel_height"]!=128||c["steps"]!=28)throw std::runtime_error("Pixel output settings not transmitted");store->settings=savedSettings;app.rebuild(false);
- app.accountProfile={{"email","test@example.invalid"},{"role","safe"}};store->settings["api_key"]=accountCredential;
+
+ for(int repeat=0;repeat<6;repeat++)for(auto setting:{"workflow_profile","genre","render_mode"}){
+  app.setPage(0);int control=-1;for(size_t i=0;i<app.fields.size();i++)if(app.fields[i].key==setting){control=int(i);break;}
+  if(control<0)continue;auto h=app.fields[control].hwnd;auto choices=SendMessageW(h,CB_GETCOUNT,0,0);SendMessageW(h,CB_SETCURSEL,choices>0?repeat%choices:0,0);
+  app.message(WM_COMMAND,MAKEWPARAM(1000+control,CBN_SELCHANGE),(LPARAM)h);
+  MSG pending;while(PeekMessageW(&pending,window,WM_APP+91,WM_APP+91,PM_REMOVE))app.message(pending.message,pending.wParam,pending.lParam);
+  if(!IsWindow(window)||app.binding)throw std::runtime_error("Setting rebuild failed");
+ }
+ if(userError("[json.exception.type_error] secret").find("secret")!=std::string::npos)throw std::runtime_error("Technical error leaked");
+app.accountProfile={{"email","test@example.invalid"},{"role","safe"}};store->settings["api_key"]=accountCredential;
  app.accountMenu();app.paint();if(app.page!=13||!app.profileNickname||!app.profileBio)throw std::runtime_error("Account page did not open");app.setPage(0);app.paint();
  for(auto& entry:app.navigationPages())if(entry.first==7||entry.first==8)throw std::runtime_error("Regular account can see developer pages");bool denied=false;try{app.setPage(7);}catch(...){denied=true;}if(!denied)throw std::runtime_error("Regular account opened consistency");
  app.engine->event({"progress",store->active,"running",{{"count",2},{"completed",0},{"progress",{{"stage","sampling"},{"percent",42}}}}});app.tick();if(app.status.find(L"42%")==std::wstring::npos||app.progress<20||app.progress>22)throw std::runtime_error("Live sample progress was not shown");app.engine->event({"transfer",store->active,"이미지 다운로드 중",{}});app.tick();if(app.status.find(L"다운로드")==std::wstring::npos)throw std::runtime_error("Download phase not visible");
