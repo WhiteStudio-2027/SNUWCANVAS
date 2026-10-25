@@ -1,6 +1,25 @@
 // App members: user-triggered learning requests, never a status polling loop.
 static std::string queryText(const std::string& value){std::string out;const char* hex="0123456789ABCDEF";for(unsigned char c:value){if((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='-'||c=='_')out+=char(c);else{out+='%';out+=hex[c>>4];out+=hex[c&15];}}return out;}
 std::thread captionThread;std::atomic_bool captionCancel{false};bool captionRunning=false;json captionModels=json::array();fs::path captionReference,captionResultFile;
+std::thread trainingStatusThread;std::atomic_bool trainingStatusCancel{false};bool trainingStatusRunning=false;ULONGLONG nextTrainingPoll=0;json trainingStatus=json::object();std::string trainingStatusProfile;
+void pollTrainingStatus(){
+ if(!hwnd||!IsWindowVisible(hwnd)||welcome||page!=7||consistencyView!=2||trainingStatusRunning||GetTickCount64()<nextTrainingPoll)return;
+ auto profile=profileId(str(store->settings,"profile_target"));if(profile.empty())return;
+ if(trainingStatusThread.joinable())trainingStatusThread.join();auto cfg=store->settings;auto project=store->active;auto* e=engine;trainingStatusCancel=false;trainingStatusRunning=true;nextTrainingPoll=GetTickCount64()+3000;
+ trainingStatusThread=std::thread([this,cfg,profile,project,e]{json data={{"profile",profile},{"scope",str(cfg,"_local_account_scope")}};
+  try{NetworkScope scope(&trainingStatusCancel,std::chrono::steady_clock::now()+std::chrono::seconds(5),str(cfg,"content_mode","standard"));auto response=request("GET",joinUrl(str(cfg,"api"),"/learning/profiles/"+profile+"/training-status"),str(cfg,"api_key"),"","application/json",&trainingStatusCancel,65536,5000);if(response.code==429)throw std::runtime_error("서버 요청이 많습니다.");data["reply"]=response.object();}
+  catch(const std::exception& x){data["error"]=userError(x.what());}
+  e->event({"learning_reply",project,"training_status",data});
+ });
+}
+void trainingStatusReply(const Event& event){
+ trainingStatusRunning=false;
+ if(event.project!=store->active||str(event.data,"scope")!=str(store->settings,"_local_account_scope")||str(event.data,"profile")!=profileId(str(store->settings,"profile_target")))return;
+ if(!str(event.data,"error").empty()){nextTrainingPoll=GetTickCount64()+10000;learningNote=L"학습 상태를 조회하지 못했습니다. 서버 업데이트와 연결을 확인하세요.";return;}
+ trainingStatusProfile=str(event.data,"profile");trainingStatus=event.data.value("reply",json::object());auto state=str(trainingStatus,"state");trainingJob=(state=="queued"||state=="running")?str(trainingStatus,"job"):"";
+ learningNote=wide(str(trainingStatus,"label"));if(state=="failed")learningNote=wide(str(trainingStatus,"message"));
+ nextTrainingPoll=GetTickCount64()+((state=="queued"||state=="running")?3000:10000);positionLearningControls(center(),card());layoutControls();if(hwnd)InvalidateRect(hwnd,nullptr,FALSE);
+}
 std::map<std::string,json> referenceProfiles;
 json learningProfiles=json::array(),ollamaModels=json::array(),learnedInfo=json::object(),archivedAssets=json::array();
 bool learningBusy=false,archiveAll=false,archiveMore=false;int archiveIndex=0,archiveOffset=0;std::string trainingJob;std::wstring learningNote;std::map<fs::path,std::string> serverAssetIds;
@@ -14,9 +33,11 @@ void featureRequest(const std::string& action,const std::string& method,const st
  std::thread([=]{CoInitializeEx(nullptr,COINIT_MULTITHREADED);try{NetworkScope modeScope(nullptr,std::chrono::steady_clock::now()+std::chrono::seconds(240),str(cfg,"content_mode","standard"));std::string body=method=="GET"?"":payload.dump(),content="application/json";if(!file.empty()){Multipart form;form.file("image",file);for(auto& [k,v]:parts.items())form.field(k,v.is_string()?v.get<std::string>():v.dump());body=form.finish();content=form.type();}auto r=request(method,joinUrl(str(cfg,"api"),path),str(cfg,"api_key"),body,content,nullptr,16*1024*1024,240000);if(r.code==429)throw std::runtime_error("요청 제한에 도달했습니다. 잠시 후 다시 시도하세요.");e->event({"learning_reply",project,action,{{"reply",r.object()},{"file",utf8(file.wstring())}}});}catch(const std::exception& x){e->event({"learning_reply",project,action=="account_logout"?"account_logout":"failed",{{"message",x.what()}}});}CoUninitialize();}).detach();
 }
 void learningReply(const Event& event){
+ if(event.text=="training_status"){trainingStatusReply(event);return;}
  if(event.text=="reference_download"){referenceDownloadReply(event);return;}
  if(event.text=="reference_progress"){if(event.project==store->active){status=L"이미지 추가 "+std::to_wstring(event.data.value("done",0))+L" / "+std::to_wstring(event.data.value("total",0));learningNote=status;}return;}
  if(event.text=="reference_batch")referenceUploadRunning=false;
+ if(event.text=="train"||event.text=="cancel"){nextTrainingPoll=0;}
  if((event.text=="profile_delete"||event.text=="model_delete"||event.text=="profile_align")&&event.project!=store->active){learningBusy=false;return;}
  if(event.text=="profile_delete"){
   learningBusy=false;auto deleted=str(event.data.value("reply",json::object()),"id");auto found=referenceProfiles.find(deleted);if(found!=referenceProfiles.end())for(auto& ref:found->second.value("references",json::array())){auto asset=profileId(str(ref,"id"));if(asset.empty())continue;for(auto mode:{"standard","hardcore"})for(auto suffix:{".png",".thumb.png"}){std::error_code ec;fs::remove(store->root/"cache/learning"/deleted/mode/(asset+suffix),ec);}}referenceProfiles.erase(deleted);
@@ -38,7 +59,7 @@ void learningReply(const Event& event){
  if(event.text=="insights")learnedInfo=data;
  if(data.contains("summary"))learnedInfo=data["summary"];
  if(event.text=="archive"){archivedAssets=data.value("assets",json::array());archiveIndex=0;archiveOffset=data.value("offset",0);archiveMore=data.value("has_more",false);formScroll=0;learningNote=L"현재 API 키로 저장된 이미지 "+std::to_wstring(archivedAssets.size())+L"장 · "+std::to_wstring(archiveOffset+1)+L"번째부터";}
- if(event.text=="profile"||event.text=="reference_batch"){if(data.contains("id"))referenceProfiles[str(data,"id")]=data;selectedReferences.clear();trainingJob.clear();auto list=data.value("training",json::array());if(!list.empty()){auto row=list[0];if(str(row,"state")=="queued"||str(row,"state")=="running")trainingJob=row.contains("job")&&row["job"].is_object()?str(row["job"],"id"):str(row,"job");learningNote=wide(str(row,"state")+" · "+str(row,"message"));}else learningNote=L"";learningNote=trainingState(data);for(auto& profile:learningProfiles)if(str(profile,"id")==str(data,"id"))profile["reference_count"]=data.value("references",json::array()).size();}
+ if(event.text=="profile"||event.text=="reference_batch"){if(data.contains("id"))referenceProfiles[str(data,"id")]=data;selectedReferences.clear();trainingJob.clear();nextTrainingPoll=0;auto list=data.value("training",json::array());if(!list.empty()){auto row=list[0];if(str(row,"state")=="queued"||str(row,"state")=="running")trainingJob=row.contains("job")&&row["job"].is_object()?str(row["job"],"id"):str(row,"job");learningNote=wide(str(row,"state")+" · "+str(row,"message"));}else learningNote=L"";learningNote=trainingState(data);for(auto& profile:learningProfiles)if(str(profile,"id")==str(data,"id"))profile["reference_count"]=data.value("references",json::array()).size();}
  if(event.text=="train"){auto key=activeProfile();referenceProfiles[key]["training"]=json::array({data});learningNote=trainingState(referenceProfiles[key]);}
  auto train=data.contains("training")?data["training"]:event.text=="train"?data:json();if(train.is_object()){if(train.contains("job")&&train["job"].is_object())trainingJob=str(train["job"],"id");learningNote=trainingState(json{{"training",json::array({train})}});}
  if(event.text=="feedback"){auto name=str(event.data,"file"),asset=str(data,"asset_id");if(!name.empty()&&!asset.empty())serverAssetIds[wide(name)]=asset;learningNote=L"평가 저장 완료 · 다음 생성부터 학습 반영 가능";}

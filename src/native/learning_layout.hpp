@@ -1,7 +1,7 @@
 int consistencyView=0,performanceView=0;
 struct LearningInput {std::string key;std::wstring title;Rect control,label;std::vector<std::wstring> choices;bool check=false;};
 struct LearningAction {int id;std::wstring text;Rect rect;bool primary=false;};
-struct LearningLayout {Rect clip;std::wstring title,hint;std::vector<LearningInput> inputs;std::vector<LearningAction> actions;float height=0,detailsY=0,selectedY=-1,referencesY=-1,referencesHeight=0;};
+struct LearningLayout {Rect clip;std::wstring title,hint;std::vector<LearningInput> inputs;std::vector<LearningAction> actions;float height=0,detailsY=0,selectedY=-1,referencesY=-1,referencesHeight=0,trainingY=-1;};
 #include "learning_references.hpp"
 int learningView()const{return page==7?consistencyView:performanceView;}
 void setLearningView(int view){save();referenceScroll=0;selectedReferences.clear();if(page==7)consistencyView=view;else performanceView=view;formScroll=0;rebuild(false);if(page==7&&view==2&&hwnd&&IsWindowVisible(hwnd)&&!learningBusy&&!profileId(str(store->settings,"profile_target")).empty())loadReferenceProfile();}
@@ -20,8 +20,8 @@ LearningLayout learningLayout(Rect c,Rect g){
   actions({{5,L"이미지 추가",true},{6,L"새로고침",false},{23,L"선택 삭제",false},{28,L"학습 모델 삭제",false},{29,L"프로필 삭제",false}});
   {auto found=referenceProfiles.find(profileId(str(store->settings,"profile_target")));if(found!=referenceProfiles.end()&&str(found->second.value("training_setup",json::object()),"reason")=="pipeline_mismatch")actions({{30,L"서버 모델에 맞추기",true}});}
   input("profile_caption",L"공통 캡션 (선택)");out.inputs.back().control.h=40;y-=24;
-  out.referencesY=y+4;out.referencesHeight=std::max(110.f,out.clip.h-y-82);y+=out.referencesHeight+12;
-  if(developer())actions({{7,L"학습 시작",true},{8,L"학습 중지",false},{27,L"추가 중지",false}});break;
+  out.referencesY=y+4;out.referencesHeight=std::max(110.f,out.clip.h-y-82-(trainingStatusProfile==profileId(str(store->settings,"profile_target"))&&!trainingStatus.empty()?208.f:0.f));y+=out.referencesHeight+12;
+  if(developer())actions({{7,L"학습 시작",true},{8,L"학습 중지",false},{27,L"추가 중지",false}});if(trainingStatusProfile==profileId(str(store->settings,"profile_target"))&&!trainingStatus.empty()){out.trainingY=y+8;y+=208;}break;
  default:out.title=L"자동 캡션 테스트";out.hint=L"로그인한 서버에서 이미지 설명을 만듭니다.";
 actions({{18,L"모델 조회",false}});
   {std::vector<std::wstring> choices={L"모델을 조회하세요"};for(auto& row:captionModels)choices.push_back(wide(str(row,"name")));input("caption_model",L"비전 모델",choices);}
@@ -77,6 +77,16 @@ void learningWorkspacePaint(Rect c,Rect g){
  if(layout.selectedY>=0){Rect r{clip.x,offset+layout.selectedY,clip.w,43};renderer.box(r,0x222326,0x383a41,4);label(selected.empty()?L"선택된 이미지 없음":selected.filename().wstring(),{r.x+10,r.y+2,std::max(20.f,r.w-128),21},true,0xd2d6e5,12);label(selected.empty()?L"라이브러리 또는 파일 선택으로 시작하세요.":L"오른쪽 미리보기의 이미지가 기록 대상입니다.",{r.x+10,r.y+23,std::max(20.f,r.w-128),17},false,0x9696a1,10);}
  for(auto& spec:layout.inputs){auto box=spec.control;box.y+=offset;if(!spec.check)renderer.box({box.x-1,box.y-1,box.w+2,box.h+2},0x161617,0x3b3e48,3);if(!hwnd){if(spec.check){if(flag(store->settings,spec.key))label(L"✓",box,true,0xb5c2ff,14);}else{auto value=wide(str(store->settings,spec.key));auto split=value.find(L" | ");if(split==32)value=value.substr(35);label(value,{box.x+8,box.y,box.w-16,box.h},false,0xd5d8e2,12);}}auto r=spec.label;r.y+=offset;label(spec.title,r,false,0xb4b7c3,12);}
  if(layout.referencesY>=0)paintReferenceList(layout,offset);
+ if(layout.trainingY>=0){float y=offset+layout.trainingY;renderer.box({clip.x,y,clip.w,196},0x141415,0,4);
+  label(wide(str(trainingStatus,"label")),{clip.x+10,y+5,clip.w-20,22},true,0xeeeeee,13);
+  auto step=trainingStatus.value("step",0),total=trainingStatus.value("total_steps",0),seconds=trainingStatus.value("elapsed_seconds",0);
+  std::wstring details=(total?std::to_wstring(step)+L" / "+std::to_wstring(total)+L" 스텝 · ":L"")+std::to_wstring(seconds/60)+L"분 "+std::to_wstring(seconds%60)+L"초";
+  label(details,{clip.x+10,y+29,clip.w-20,20},false,0xdddddd,12);
+  renderer.box({clip.x+10,y+53,clip.w-20,4},0x38383b,0,1);if(trainingStatus.contains("percent"))renderer.box({clip.x+10,y+53,(clip.w-20)*std::clamp(trainingStatus.value("percent",0.),0.,100.)/100,4},0xeeeeee,0,1);
+  if(str(trainingStatus,"state")=="failed")label(wide(str(trainingStatus,"message")),{clip.x+10,y+62,clip.w-20,34},false,0xffb4b4,11);
+  auto lines=trainingStatus.value("logs",json::array());int begin=std::max(0,int(lines.size())-6);float lineY=y+98;for(int i=begin;i<int(lines.size());i++){label(wide(lines[i].get<std::string>()),{clip.x+10,lineY,clip.w-20,15},false,0xdddddd,10);lineY+=15;}
+ }
+
  if(layout.detailsY>0){float y=offset+layout.detailsY;renderer.box({clip.x,y,clip.w,82},0x23242a,0x363944,4);label(L"현재 채널의 학습 근거",{clip.x+12,y+5,clip.w-24,24},true);auto ctr=learnedInfo.value("ctr",json());std::wstring percent=L"-";if(ctr.is_number()){std::wostringstream value;value<<std::fixed<<std::setprecision(1)<<ctr.get<double>()*100<<L"%";percent=value.str();}label(L"평가 "+std::to_wstring(learnedInfo.value("samples",0))+L"건 · 클릭률 "+percent,{clip.x+12,y+30,clip.w-24,24},false,0xc7cfee,12);label(L"노출 "+std::to_wstring(learnedInfo.value("impressions",0LL))+L" · 클릭 "+std::to_wstring(learnedInfo.value("clicks",0LL)),{clip.x+12,y+54,clip.w-24,20},false,0x999da9,11);y+=98;for(auto& row:learnedInfo.value("features",json::array())){label(wide(str(row,"prompt"))+L"  ·  "+wide(str(row,"samples"))+L"건",{clip.x+8,y,clip.w-16,25},false,0xbac7ef,12);y+=28;}}
  size_t first=contentButtons;for(auto& action:layout.actions){auto r=action.rect;r.y+=offset;bool available=action.id==22?captionRunning:!learningBusy;if(action.id==8)available&=!trainingJob.empty();if(action.id==23)available&=!selectedReferences.empty();if(action.id==7){auto found=referenceProfiles.find(profileId(str(store->settings,"profile_target")));if(found!=referenceProfiles.end()&&found->second.contains("training_setup"))available&=found->second["training_setup"].value("ready",false);}if(action.id==27)available=referenceUploadRunning;if(action.id==14)available&=!learningAnalysisId.empty();if(action.id==15)available&=!selected.empty();if(action.id==12)available&=!selected.empty();button(r,action.text,[this,id=action.id]{learningAction(id);},action.primary,available);}
  // A scrolled action may never receive clicks outside the content viewport.
