@@ -13,7 +13,7 @@ void accountSignIn(bool creating=false){
 }
 void accountMenu(){if(accountProfile.empty()){accountSignIn();return;}setPage(13);}
 void accountOverlay(){
- if(imageSearch)ShowWindow(imageSearch,accountPopover?SW_HIDE:SW_SHOW);if(!accountPopover)return;
+ if(imageSearch)ShowWindow(imageSearch,accountPopover||referencePreviewMode()?SW_HIDE:SW_SHOW);if(!accountPopover)return;
  Rect panel{width-278,54,250,219};renderer.box(panel,0x20242f,0x41495e,12);icon({panel.x+16,panel.y+16,24,24},5,0xb5c2ff);
  label(wide(str(accountProfile,"email")),{panel.x+52,panel.y+11,182,24},true,0xe5e5e7,11);
  label(wide(str(accountProfile,"role")),{panel.x+52,panel.y+35,182,18},false,0x9ca7bf,10);renderer.line(panel.x+14,panel.y+65,panel.x+236,panel.y+65,0x3b4254);

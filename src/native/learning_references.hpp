@@ -1,7 +1,49 @@
 // Owned dataset operations; uploads are streamed as individual bounded requests.
 std::thread referenceTransferThread,referenceThumbThread;
 std::atomic_bool referenceTransferCancel{false},referenceThumbCancel{false},referenceShutdown{false};
-bool referenceUploadRunning=false,referenceThumbLoading=false;
+bool referenceUploadRunning=false,referencePreviewLoading=false;
+std::wstring referencePreviewError;
+struct ReferenceDownload {json cfg;fs::path root,target;std::string project,profile,asset;bool preview=false;uint64_t sequence=0;};
+std::mutex referenceDownloadMutex;std::condition_variable referenceDownloadWake;
+std::deque<ReferenceDownload> referenceDownloads;std::map<fs::path,uint64_t> referencePending;
+uint64_t referencePreviewSequence=0;
+void cancelReferenceDownloads(){
+ std::lock_guard lock(referenceDownloadMutex);referenceDownloads.clear();referencePending.clear();referenceThumbCancel=true;++referencePreviewSequence;referencePreviewLoading=false;
+}
+void queueReferenceDownload(ReferenceDownload task){
+ {std::lock_guard lock(referenceDownloadMutex);
+  if(task.preview){for(auto it=referenceDownloads.begin();it!=referenceDownloads.end();)if(it->preview){referencePending.erase(it->target);it=referenceDownloads.erase(it);}else ++it;}
+  if(task.preview)referencePending.erase(task.target);if(!referencePending.emplace(task.target,task.sequence).second)return;
+  if(task.preview)referenceDownloads.push_front(std::move(task));else referenceDownloads.push_back(std::move(task));
+ }
+ if(!referenceThumbThread.joinable())referenceThumbThread=std::thread([this]{
+  CoInitializeEx(nullptr,COINIT_MULTITHREADED);
+  while(!referenceShutdown){ReferenceDownload task;
+   {std::unique_lock lock(referenceDownloadMutex);referenceDownloadWake.wait(lock,[this]{return referenceShutdown||!referenceDownloads.empty();});if(referenceShutdown)break;task=std::move(referenceDownloads.front());referenceDownloads.pop_front();referenceThumbCancel=false;}
+   std::string failure;bool cancelled=false;
+   try{
+    NetworkScope scope(&referenceThumbCancel,std::chrono::steady_clock::now()+std::chrono::seconds(task.preview?30:15),str(task.cfg,"content_mode","standard"));
+    auto response=request("GET",joinUrl(str(task.cfg,"api"),"/learning/assets/"+task.asset+(task.preview?"/image":"/thumbnail")),str(task.cfg,"api_key"),"","application/json",&referenceThumbCancel,task.preview?128*1024*1024:2*1024*1024,task.preview?30000:15000);
+    if(response.code==429)throw std::runtime_error("서버 요청이 많습니다. 잠시 후 다시 선택하세요.");
+    if(referenceThumbCancel)throw std::runtime_error("cancelled");saveImage(task.target,response.data);if(task.preview)registerLocalImage(task.cfg,task.target);
+   }catch(const std::exception& x){cancelled=referenceThumbCancel;failure=cancelled?"":userError(x.what());}
+   engine->event({"learning_reply",task.project,"reference_download",{{"file",utf8(task.target.wstring())},{"profile",task.profile},{"asset",task.asset},{"preview",task.preview},{"sequence",task.sequence},{"scope",str(task.cfg,"_local_account_scope")},{"mode",str(task.cfg,"content_mode","standard")},{"error",failure},{"cancelled",cancelled}}});
+  }
+  CoUninitialize();
+ });
+ referenceDownloadWake.notify_one();
+}
+void referenceDownloadReply(const Event& event){
+ auto file=fs::path(wide(str(event.data,"file")));{std::lock_guard lock(referenceDownloadMutex);auto found=referencePending.find(file);if(found!=referencePending.end()&&found->second==event.data.value("sequence",uint64_t(0)))referencePending.erase(found);}
+ if(event.project!=store->active||str(event.data,"scope")!=str(store->settings,"_local_account_scope")||str(event.data,"mode")!=str(store->settings,"content_mode","standard"))return;
+ if(event.data.value("preview",false)){
+  if(event.data.value("sequence",uint64_t(0))!=referencePreviewSequence)return;
+  referencePreviewLoading=false;referencePreviewError=wide(str(event.data,"error"));
+  if(!event.data.value("cancelled",false)&&referencePreviewError.empty()&&str(event.data,"profile")==profileId(str(store->settings,"profile_target")))select(file);
+  else if(!referencePreviewError.empty()){previewFailed=true;status=referencePreviewError;}
+ }else if(!str(event.data,"error").empty())referenceThumbFailures.insert(str(event.data,"profile")+"/"+(str(event.data,"mode")=="hardcore"?"hardcore":"standard")+"/"+str(event.data,"asset"));
+ if(hwnd)InvalidateRect(hwnd,nullptr,FALSE);
+}
 std::set<std::string> selectedReferences,referenceThumbFailures;
 std::string referenceSelectionProfile;float referenceScroll=0;Rect referenceListArea;
 fs::path referenceCache(const std::string& profile,const std::string& asset,bool thumb=true)const{
@@ -27,10 +69,10 @@ void startReferenceTransfer(std::vector<fs::path> files,std::vector<std::string>
  if(learningBusy)return;if(files.size()>100)throw std::runtime_error("이미지는 한 번에 최대 100장까지 추가할 수 있습니다.");
  save();auto profile=activeProfile(),project=store->active;auto cfg=store->settings;auto root=store->root;auto* e=engine;
  for(auto& file:files){std::error_code ec;auto size=fs::file_size(file,ec);if(ec||!size||size>25*1024*1024||!imagePath(file))throw std::runtime_error("이미지는 장당 25MB 이하의 PNG·JPG·WEBP 파일을 선택하세요.");}
- if(referenceTransferThread.joinable())referenceTransferThread.join();referenceTransferCancel=false;referenceUploadRunning=true;learningBusy=true;learningNote=files.empty()?L"이미지 삭제 중…":L"이미지 추가 0 / "+std::to_wstring(files.size());
+ cancelReferenceDownloads();if(referenceTransferThread.joinable())referenceTransferThread.join();referenceTransferCancel=false;referenceUploadRunning=true;learningBusy=true;learningNote=files.empty()?L"이미지 삭제 중…":L"이미지 추가 0 / "+std::to_wstring(files.size());
  for(auto& field:fields)if(field.key=="profile_target")EnableWindow(field.hwnd,FALSE);
  referenceTransferThread=std::thread([this,files=std::move(files),deletions=std::move(deletions),profile,project,cfg,root,e]{
-  CoInitializeEx(nullptr,COINIT_MULTITHREADED);referenceThumbCancel=true;if(referenceThumbThread.joinable())referenceThumbThread.join();json reply=json::object();std::string message;int completed=0;
+  CoInitializeEx(nullptr,COINIT_MULTITHREADED);json reply=json::object();std::string message;int completed=0;
   try{NetworkScope scope(&referenceTransferCancel,std::chrono::steady_clock::now()+std::chrono::minutes(30),str(cfg,"content_mode","standard"));
    for(auto& file:files){Multipart form;form.file("image",file);form.field("caption",str(cfg,"profile_caption"));form.field("defer_training","true");
     auto response=request("POST",joinUrl(str(cfg,"api"),"/learning/profiles/"+profile+"/references"),str(cfg,"api_key"),form.finish(),form.type(),&referenceTransferCancel,1024*1024,120000);
@@ -63,20 +105,15 @@ static fs::path fetchReferenceThumbnail(const json& cfg,const fs::path& root,con
  auto target=root/"cache/learning"/profile/(str(cfg,"content_mode")=="hardcore"?"hardcore":"standard")/(asset+".thumb.png");saveImage(target,response.data);return target;
 }
 void requestReferenceThumbnails(const std::string& profile,const std::vector<json>& rows){
- if(!hwnd||!IsWindowVisible(hwnd)||rows.empty()||referenceThumbLoading||learningBusy)return;
- if(referenceThumbThread.joinable())referenceThumbThread.join();auto cfg=store->settings;auto project=store->active;auto root=store->root;auto* e=engine;referenceThumbLoading=true;referenceThumbCancel=false;
- referenceThumbThread=std::thread([this,cfg,project,root,profile,rows,e]{CoInitializeEx(nullptr,COINIT_MULTITHREADED);json failed=json::array();
-  {NetworkScope mode(&referenceThumbCancel,std::chrono::steady_clock::now()+std::chrono::seconds(60),str(cfg,"content_mode","standard"));
-   for(auto& row:rows){auto asset=str(row,"id");if(referenceThumbCancel)break;try{fetchReferenceThumbnail(cfg,root,profile,asset,&referenceThumbCancel);}catch(...){failed.push_back(profile+"/"+(str(cfg,"content_mode")=="hardcore"?"hardcore":"standard")+"/"+asset);}}
-  }e->event({"learning_reply",project,"reference_thumbnails",{{"failed",failed}}});CoUninitialize();
- });
+ if(!hwnd||!IsWindowVisible(hwnd)||rows.empty()||learningBusy)return;
+ for(auto& row:rows){auto asset=str(row,"id");auto target=referenceCache(profile,asset);queueReferenceDownload({store->settings,store->root,target,store->active,profile,asset,false,0});}
 }
 bool referencePreviewMode()const{return page==7&&consistencyView==2;}
 void showReferencePreview(const std::string& key,const std::string& asset){
- auto cache=referenceCache(key,asset,false);focusPreview=true;
+ auto cache=referenceCache(key,asset,false);focusPreview=true;referencePreviewError.clear();referencePreviewLoading=false;++referencePreviewSequence;
  if(fs::exists(cache)){registerLocalImage(store->settings,cache);select(cache);return;}
- selected.clear();preview.Reset();previewFailed=false;
- featureRequest("reference_preview","GET","/learning/assets/"+asset+"/image",{{"cache_path",utf8(cache.wstring())}});
+ selected.clear();preview.Reset();previewFailed=false;referencePreviewLoading=true;
+ queueReferenceDownload({store->settings,store->root,cache,store->active,key,asset,true,referencePreviewSequence});
 }
 bool referencePreviewSelected()const{
  auto profile=profileId(str(store->settings,"profile_target"));
@@ -88,7 +125,7 @@ void paintReferencePreview(float rx){
  renderer.box({rx,8,rightWidth-14,height-16},0x1b1b1c,0x303033,6);label(L"학습 이미지",{rx+14,18,200,28},true);
  renderer.box(previewRect,0x141415,0,6);
  if(available&&preview)renderer.bitmap(preview.Get(),{previewRect.x+10,previewRect.y+10,previewRect.w-20,previewRect.h-20},imageW<=256&&imageH<=256);
- else label(learningBusy?L"이미지 불러오는 중…":previewFailed?L"이미지를 읽을 수 없습니다":L"이미지를 선택하세요",{previewRect.x+15,previewRect.y+previewRect.h/2,previewRect.w-30,30},false,0xdddddd,14);
+ else label(referencePreviewLoading?L"이미지 다운로드 중…":!referencePreviewError.empty()?referencePreviewError:available?L"이미지 표시 중…":L"이미지를 선택하세요",{previewRect.x+15,previewRect.y+previewRect.h/2,previewRect.w-30,30},false,0xdddddd,14);
  button({rx+12,height-56,100,36},L"저장",[this]{exportImage();},false,available);
  button({rx+120,height-56,100,36},L"확대",[this]{openSelected();},false,available);
 }

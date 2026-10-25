@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 from PIL import Image
 
@@ -15,7 +16,7 @@ EXE=ROOT.parent/'SNUWCANVAS.exe'
 @unittest.skipUnless(EXE.exists(),'Build native client first')
 class LearningDatasetClientTests(unittest.TestCase):
  def test_real_native_hundred_uploads_mode_limit_and_delete(self):
-  rows=[];calls=[];profile='a'*32
+  rows=[];calls=[];profile='a'*32;active=0;peak=0;failed=False;lock=threading.Lock()
   class Handler(BaseHTTPRequestHandler):
    def log_message(self,*args):pass
    def reply(self,data):
@@ -23,9 +24,17 @@ class LearningDatasetClientTests(unittest.TestCase):
    def do_GET(self):
     calls.append(('GET',self.path,dict(self.headers),None))
     if self.path.endswith(('/image','/thumbnail')):
-     import io
-     out=io.BytesIO();Image.new('RGB',(32,48),'navy').save(out,format='PNG');raw=out.getvalue()
-     self.send_response(200);self.send_header('Content-Type','image/png');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
+     nonlocal active,peak,failed
+     with lock:active+=1;peak=max(peak,active)
+     try:
+      time.sleep(.2)
+      if '/'+('f'*32)+'/' in self.path and not failed:
+       failed=True;self.send_response(503);self.send_header('Content-Length','0');self.end_headers();return
+      import io
+      out=io.BytesIO();Image.new('RGB',(32,48),'navy').save(out,format='PNG');raw=out.getvalue()
+      self.send_response(200);self.send_header('Content-Type','image/png');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
+     finally:
+      with lock:active-=1
     self.reply({'id':profile,'references':list(rows),'auto_train':False,'training_setup':{'ready':False,'reason':'setup_required'}})
    def do_POST(self):
     raw=self.rfile.read(int(self.headers['Content-Length']))
@@ -43,7 +52,7 @@ class LearningDatasetClientTests(unittest.TestCase):
     for i in range(100):Image.new('RGB',(12,12),(i,80,120)).save(folder/f'{i}.png')
     process=subprocess.run([str(EXE),'--learning-dataset-test',name,f'http://127.0.0.1:{server.server_port}'],timeout=100,creationflags=subprocess.CREATE_NO_WINDOW)
     report=json.loads((folder/'learning-dataset-result.json').read_text())
-    self.assertEqual(process.returncode,0,report);self.assertTrue(report['preview_downloaded']);self.assertTrue(report['limit_100']);self.assertFalse(report['gui_opened'])
+    self.assertEqual(process.returncode,0,report);self.assertEqual(peak,1);self.assertTrue(failed);self.assertTrue(report['preview_downloaded']);self.assertTrue(report['limit_100']);self.assertFalse(report['gui_opened'])
     uploads=[row for row in calls if row[0]=='POST'];self.assertEqual(len(uploads),100)
     self.assertTrue(all(row[3]['defer_training']==b'true' for row in uploads))
     self.assertEqual(len({row[3]['image'] for row in uploads}),100)
