@@ -21,7 +21,12 @@ class LearningDatasetClientTests(unittest.TestCase):
    def reply(self,data):
     raw=json.dumps(data).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
    def do_GET(self):
-    calls.append(('GET',self.path,dict(self.headers),None));self.reply({'id':profile,'references':list(rows),'auto_train':False,'training_setup':{'ready':False,'reason':'setup_required'}})
+    calls.append(('GET',self.path,dict(self.headers),None))
+    if self.path.endswith(('/image','/thumbnail')):
+     import io
+     out=io.BytesIO();Image.new('RGB',(32,48),'navy').save(out,format='PNG');raw=out.getvalue()
+     self.send_response(200);self.send_header('Content-Type','image/png');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);return
+    self.reply({'id':profile,'references':list(rows),'auto_train':False,'training_setup':{'ready':False,'reason':'setup_required'}})
    def do_POST(self):
     raw=self.rfile.read(int(self.headers['Content-Length']))
     if self.path.endswith('/delete'):
@@ -38,7 +43,7 @@ class LearningDatasetClientTests(unittest.TestCase):
     for i in range(100):Image.new('RGB',(12,12),(i,80,120)).save(folder/f'{i}.png')
     process=subprocess.run([str(EXE),'--learning-dataset-test',name,f'http://127.0.0.1:{server.server_port}'],timeout=100,creationflags=subprocess.CREATE_NO_WINDOW)
     report=json.loads((folder/'learning-dataset-result.json').read_text())
-    self.assertEqual(process.returncode,0,report);self.assertTrue(report['limit_100']);self.assertFalse(report['gui_opened'])
+    self.assertEqual(process.returncode,0,report);self.assertTrue(report['preview_downloaded']);self.assertTrue(report['limit_100']);self.assertFalse(report['gui_opened'])
     uploads=[row for row in calls if row[0]=='POST'];self.assertEqual(len(uploads),100)
     self.assertTrue(all(row[3]['defer_training']==b'true' for row in uploads))
     self.assertEqual(len({row[3]['image'] for row in uploads}),100)

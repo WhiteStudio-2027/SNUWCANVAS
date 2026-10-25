@@ -57,14 +57,40 @@ void deleteSelectedReferences(){
  if(MessageBoxW(hwnd,(std::to_wstring(selectedReferences.size())+L"장의 학습 이미지와 설명 파일을 삭제할까요?\n이미 학습한 결과를 바꾸려면 다시 학습해야 합니다.").c_str(),L"학습 이미지 삭제",MB_YESNO|MB_ICONQUESTION)!=IDYES)return;
  startReferenceTransfer({},std::vector<std::string>(selectedReferences.begin(),selectedReferences.end()));
 }
+static fs::path fetchReferenceThumbnail(const json& cfg,const fs::path& root,const std::string& profile,const std::string& asset,std::atomic_bool* cancel){
+ NetworkScope mode(cancel,std::chrono::steady_clock::now()+std::chrono::seconds(20),str(cfg,"content_mode","standard"));
+ auto response=request("GET",joinUrl(str(cfg,"api"),"/learning/assets/"+asset+"/thumbnail"),str(cfg,"api_key"),"","application/json",cancel,2*1024*1024,15000);
+ auto target=root/"cache/learning"/profile/(str(cfg,"content_mode")=="hardcore"?"hardcore":"standard")/(asset+".thumb.png");saveImage(target,response.data);return target;
+}
 void requestReferenceThumbnails(const std::string& profile,const std::vector<json>& rows){
  if(!hwnd||!IsWindowVisible(hwnd)||rows.empty()||referenceThumbLoading||learningBusy)return;
  if(referenceThumbThread.joinable())referenceThumbThread.join();auto cfg=store->settings;auto project=store->active;auto root=store->root;auto* e=engine;referenceThumbLoading=true;referenceThumbCancel=false;
  referenceThumbThread=std::thread([this,cfg,project,root,profile,rows,e]{CoInitializeEx(nullptr,COINIT_MULTITHREADED);json failed=json::array();
   {NetworkScope mode(&referenceThumbCancel,std::chrono::steady_clock::now()+std::chrono::seconds(60),str(cfg,"content_mode","standard"));
-   for(auto& row:rows){auto asset=str(row,"id");if(referenceThumbCancel)break;try{auto response=request("GET",joinUrl(str(cfg,"api"),"/learning/assets/"+asset+"/thumbnail"),str(cfg,"api_key"),"","application/json",&referenceThumbCancel,2*1024*1024,15000);if(response.code==429)throw std::runtime_error("rate");saveImage(root/"cache/learning"/profile/(str(cfg,"content_mode")=="hardcore"?"hardcore":"standard")/(asset+".thumb.png"),response.data);}catch(...){failed.push_back(profile+"/"+(str(cfg,"content_mode")=="hardcore"?"hardcore":"standard")+"/"+asset);}}
+   for(auto& row:rows){auto asset=str(row,"id");if(referenceThumbCancel)break;try{fetchReferenceThumbnail(cfg,root,profile,asset,&referenceThumbCancel);}catch(...){failed.push_back(profile+"/"+(str(cfg,"content_mode")=="hardcore"?"hardcore":"standard")+"/"+asset);}}
   }e->event({"learning_reply",project,"reference_thumbnails",{{"failed",failed}}});CoUninitialize();
  });
+}
+bool referencePreviewMode()const{return page==7&&consistencyView==2;}
+void showReferencePreview(const std::string& key,const std::string& asset){
+ auto cache=referenceCache(key,asset,false);focusPreview=true;
+ if(fs::exists(cache)){registerLocalImage(store->settings,cache);select(cache);return;}
+ selected.clear();preview.Reset();previewFailed=false;
+ featureRequest("reference_preview","GET","/learning/assets/"+asset+"/image",{{"cache_path",utf8(cache.wstring())}});
+}
+bool referencePreviewSelected()const{
+ auto profile=profileId(str(store->settings,"profile_target"));
+ return !selected.empty()&&!profile.empty()&&selected.parent_path()==store->root/"cache/learning"/profile/(str(store->settings,"content_mode")=="hardcore"?"hardcore":"standard")&&fs::exists(selected);
+}
+void paintReferencePreview(float rx){
+ bool available=referencePreviewSelected();
+ browser={};galleryDivider={};previewRect={rx+12,60,std::max(40.f,rightWidth-40),std::max(40.f,height-132)};
+ renderer.box({rx,8,rightWidth-14,height-16},0x1b1b1c,0x303033,6);label(L"학습 이미지",{rx+14,18,200,28},true);
+ renderer.box(previewRect,0x141415,0,6);
+ if(available&&preview)renderer.bitmap(preview.Get(),{previewRect.x+10,previewRect.y+10,previewRect.w-20,previewRect.h-20},imageW<=256&&imageH<=256);
+ else label(learningBusy?L"이미지 불러오는 중…":previewFailed?L"이미지를 읽을 수 없습니다":L"이미지를 선택하세요",{previewRect.x+15,previewRect.y+previewRect.h/2,previewRect.w-30,30},false,0xdddddd,14);
+ button({rx+12,height-56,100,36},L"저장",[this]{exportImage();},false,available);
+ button({rx+120,height-56,100,36},L"확대",[this]{openSelected();},false,available);
 }
 void paintReferenceList(const LearningLayout& layout,float offset){
  auto key=profileId(str(store->settings,"profile_target"));if(key!=referenceSelectionProfile){referenceSelectionProfile=key;selectedReferences.clear();referenceScroll=0;}
@@ -76,14 +102,14 @@ void paintReferenceList(const LearningLayout& layout,float offset){
  renderer.target->PushAxisAlignedClip(area.d2d(),D2D1_ANTIALIAS_MODE_ALIASED);std::vector<json> pending;
  int first=std::max(0,int(referenceScroll/58)),last=std::min(int(refs.size()),first+int(area.h/58)+2);
  for(int i=first;i<last;i++){auto& row=refs[i];auto asset=str(row,"id");Rect r{area.x+4,area.y+i*58-referenceScroll,area.w-12,54};if(selectedReferences.count(asset))renderer.box(r,0x333336,0,3);
-  Rect tick{r.x+6,r.y+18,18,18};renderer.box(tick,0x19191a,0x77777a,2);if(selectedReferences.count(asset))label(L"✓",tick,true,0xffffff,14);
+  Rect tick{r.x+5,r.y+15,24,24};renderer.box(tick,selectedReferences.count(asset)?0xeeeeee:0x55555a,0,4);if(selectedReferences.count(asset)){renderer.brush->SetColor(color(0x202022));renderer.target->DrawLine(D2D1::Point2F(tick.x+5,tick.y+12),D2D1::Point2F(tick.x+10,tick.y+17),renderer.brush.Get(),2.5f);renderer.target->DrawLine(D2D1::Point2F(tick.x+10,tick.y+17),D2D1::Point2F(tick.x+19,tick.y+7),renderer.brush.Get(),2.5f);}else renderer.box({tick.x+2,tick.y+2,20,20},0x19191a,0,2);
   auto path=referenceCache(key,asset);auto bitmap=thumbs.find(path);Rect thumb{r.x+34,r.y+3,48,48};
   if(bitmap)renderer.bitmap(bitmap->Get(),thumb);else{renderer.box(thumb,0x252528,0,2);if(fs::exists(path)){if(!requested.count(path)&&images.add(path,revision))requested.insert(path);}else if(!referenceThumbFailures.count(key+"/"+(str(store->settings,"content_mode")=="hardcore"?"hardcore":"standard")+"/"+asset)&&pending.size()<12)pending.push_back(row);}
   auto meta=row.value("metadata",json::object());auto name=wide(str(meta,"filename"));if(name.empty())name=L"이미지 "+std::to_wstring(i+1);
   label(name,{r.x+94,r.y+5,r.w-100,22},false,0xeeeeee,12);auto obs=row.value("observations",json::object());label(std::to_wstring(obs.value("width",0))+L" × "+std::to_wstring(obs.value("height",0)),{r.x+94,r.y+28,r.w-100,18},false,0xbbbbbb,11);
   Rect hit{r.x,std::max(r.y,area.y),r.w,std::max(0.f,std::min(r.y+r.h,area.y+area.h)-std::max(r.y,area.y))};Rect checkHit{hit.x,hit.y,30,hit.h};
-  buttons.push_back({checkHit,L"",[this,asset]{if(!selectedReferences.erase(asset))selectedReferences.insert(asset);},false,!learningBusy});hit.x+=30;hit.w-=30;
-  buttons.push_back({hit,L"",[this,key,asset]{auto cache=referenceCache(key,asset,false);if(fs::exists(cache)){select(cache);return;}featureRequest("reference_preview","GET","/learning/assets/"+asset+"/image",{{"cache_path",utf8(cache.wstring())}});},false,!learningBusy});
+  buttons.push_back({checkHit,L"",[this,key,asset]{if(!selectedReferences.erase(asset)){selectedReferences.insert(asset);showReferencePreview(key,asset);}},false,!learningBusy});hit.x+=30;hit.w-=30;
+  buttons.push_back({hit,L"",[this,key,asset]{showReferencePreview(key,asset);},false,!learningBusy});
  }
  if(refs.empty())label(L"이미지를 추가하세요",{area.x+12,area.y+10,area.w-24,35},false,0xbbbbbb,13);
  renderer.target->PopAxisAlignedClip();requestReferenceThumbnails(key,pending);
