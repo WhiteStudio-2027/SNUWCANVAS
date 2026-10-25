@@ -47,4 +47,7 @@ class FoundationClientTests(unittest.TestCase):
                 self.assertEqual(UUID(body['client_id']).version,4);self.assertEqual(headers['X-Client-Id'],body['client_id'])
                 self.assertEqual(headers['X-Client-Version'],'v2.0.0');self.assertFalse(body['hardware_agreed']);self.assertNotIn('hardware',body)
                 self.assertTrue(all(row[2].get('X-Client-Version')=='v2.0.0' for row in calls))
+                control=[row for row in calls if row[1].startswith('/api/')]
+                self.assertTrue(all(row[2].get('X-Content-Mode')=='standard' for row in control))
+                self.assertEqual([row[2].get('X-Content-Mode') for row in calls if row[1]=='/protected'],['standard'])
         finally:server.shutdown();server.server_close();thread.join(timeout=2)

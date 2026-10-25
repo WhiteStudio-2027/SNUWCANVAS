@@ -28,9 +28,9 @@ class AccountSessionClientTests(unittest.TestCase):
             def log_message(self, *args):
                 pass
 
-            def reply(self, value):
+            def reply(self, value, status=200):
                 raw = json.dumps(value).encode()
-                self.send_response(200)
+                self.send_response(status)
                 self.send_header('Content-Length', str(len(raw)))
                 self.end_headers()
                 self.wfile.write(raw)
@@ -38,6 +38,8 @@ class AccountSessionClientTests(unittest.TestCase):
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
                 calls.append(('POST', self.path, dict(self.headers), body))
+                if self.path.startswith('/api/auth/') and self.headers.get('X-Content-Mode')!='standard':
+                    self.reply({'detail':'This key is restricted to standard mode'},403);return
                 if self.path=='/api/auth/logout-all':
                     self.reply({'logged_out':True});return
                 self.reply({'access_token': 'b' * 32, 'refresh_token': 's' * 60,
@@ -69,8 +71,10 @@ class AccountSessionClientTests(unittest.TestCase):
                 self.assertEqual(len(refreshes), 1)
                 self.assertEqual(refreshes[0][1], '/api/auth/refresh')
                 self.assertEqual(refreshes[0][3], {'refresh_token': 'r' * 60})
+                self.assertTrue(all(row[2].get('X-Content-Mode')=='standard' for row in refreshes+logouts))
                 requests = [row for row in calls if row[0] == 'GET']
                 self.assertEqual(len(requests), 2)
+                self.assertTrue(all(row[2].get('X-Content-Mode')=='hardcore' for row in requests))
                 self.assertTrue(all('X-API-Key' not in row[2] for row in calls))
                 self.assertTrue(all(row[2].get('X-Client-Id') for row in calls))
         finally:
