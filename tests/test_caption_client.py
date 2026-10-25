@@ -39,6 +39,7 @@ class CaptionClientTests(unittest.TestCase):
                 self.assertEqual(urlsplit(calls[1][0]).path,'/api/caption/captions')
                 self.assertTrue(all(row[1].get('Authorization')=='Bearer '+'a'*32 for row in calls))
                 self.assertTrue(all('X-API-Key' not in row[1] for row in calls))
+                self.assertTrue(all(row[1].get('X-Content-Mode')=='hardcore' for row in calls))
         finally:server.shutdown();server.server_close();thread.join(timeout=2)
 
     def test_native_raw_image_model_key_response_and_cancel(self):

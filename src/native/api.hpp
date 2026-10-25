@@ -8,6 +8,9 @@ struct Url {std::wstring host,path;INTERNET_PORT port;bool secure;explicit Url(c
 inline constexpr const char* serverHtmlError="서버 대신 웹 페이지가 응답했습니다. 네트워크 차단 여부를 운영자에게 확인하세요.";
 inline constexpr const char* serverJsonError="서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도하거나 운영자에게 문의하세요.";
 inline std::string userError(const std::string& message){
+ if(message.find("Training is not enabled for this API key")!=std::string::npos)return "서버에서 이 계정의 학습 허용 설정이 필요합니다.";
+ if(message.find("Stop training before deleting")!=std::string::npos)return "학습을 중지한 뒤 이미지를 삭제하세요.";
+ if(message.find("Reference deletion incomplete")!=std::string::npos)return "일부 파일을 삭제하지 못했습니다. 다시 삭제해 주세요.";
  if(message.find("restricted to standard")!=std::string::npos)return "이 계정의 하드코어 권한을 확인하지 못했습니다. 다시 로그인하거나 관리자에게 문의하세요.";
  if(message.find("HTTP 401")!=std::string::npos)return "로그인이 만료되었습니다. 다시 로그인하세요.";
  if(message.find("HTTP 403")!=std::string::npos||message.find("안전 모드")!=std::string::npos)return "권한 또는 콘텐츠 검사로 요청이 제한되었습니다. 현재 모드와 입력 내용을 확인하세요.";

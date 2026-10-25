@@ -52,6 +52,13 @@ inline fs::path exeDir(){wchar_t b[32768];GetModuleFileNameW(nullptr,b,32768);re
 inline std::wstring textOf(HWND h){int n=GetWindowTextLengthW(h);std::wstring s(n+1,0);GetWindowTextW(h,s.data(),n+1);s.resize(n);return s;}
 inline std::string timestamp(){SYSTEMTIME t;GetLocalTime(&t);char b[64];snprintf(b,sizeof b,"%04d%02d%02d_%02d%02d%02d_%03d",t.wYear,t.wMonth,t.wDay,t.wHour,t.wMinute,t.wSecond,t.wMilliseconds);return b;}
 inline std::wstring fileDialog(HWND owner,bool save,const wchar_t* filter,const wchar_t* ext=nullptr){wchar_t b[32768]={};OPENFILENAMEW o{sizeof o};o.hwndOwner=owner;o.lpstrFilter=filter;o.lpstrFile=b;o.nMaxFile=32768;o.lpstrDefExt=ext;o.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|(save?OFN_OVERWRITEPROMPT:OFN_FILEMUSTEXIST);return (save?GetSaveFileNameW(&o):GetOpenFileNameW(&o))?b:L"";}
+inline std::vector<fs::path> imageFilesDialog(HWND owner){
+ std::vector<wchar_t> buffer(262144);OPENFILENAMEW o{sizeof o};o.hwndOwner=owner;o.lpstrFilter=L"이미지\0*.png;*.jpg;*.jpeg;*.webp\0\0";o.lpstrFile=buffer.data();o.nMaxFile=DWORD(buffer.size());o.Flags=OFN_EXPLORER|OFN_NOCHANGEDIR|OFN_FILEMUSTEXIST|OFN_ALLOWMULTISELECT;
+ if(!GetOpenFileNameW(&o)){if(CommDlgExtendedError())throw std::runtime_error("이미지 선택창을 열지 못했습니다.");return {};}
+ std::vector<fs::path> files;fs::path first(buffer.data());auto next=buffer.data()+wcslen(buffer.data())+1;
+ if(!*next)files.push_back(first);else for(;*next;next+=wcslen(next)+1){files.push_back(first/next);if(files.size()>100)throw std::runtime_error("이미지는 한 번에 최대 100장까지 추가할 수 있습니다.");}
+ return files;
+}
 inline std::wstring pickFolder(HWND owner){Com<IFileDialog> d;if(FAILED(CoCreateInstance(CLSID_FileOpenDialog,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&d))))return {};DWORD f;d->GetOptions(&f);d->SetOptions(f|FOS_PICKFOLDERS|FOS_FORCEFILESYSTEM);if(FAILED(d->Show(owner)))return {};Com<IShellItem> item;d->GetResult(&item);PWSTR p=nullptr;item->GetDisplayName(SIGDN_FILESYSPATH,&p);std::wstring s=p?p:L"";CoTaskMemFree(p);return s;}
 inline void openPath(const fs::path& path){ShellExecuteW(nullptr,L"open",path.c_str(),nullptr,nullptr,SW_SHOWNORMAL);}
 inline std::string mime(const fs::path& p){auto e=p.extension().wstring();std::transform(e.begin(),e.end(),e.begin(),::towlower);if(e==L".jpg"||e==L".jpeg")return "image/jpeg";if(e==L".webp")return "image/webp";if(e==L".bmp")return "image/bmp";return "image/png";}
