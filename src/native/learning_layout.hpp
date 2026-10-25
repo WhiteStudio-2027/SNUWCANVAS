@@ -14,10 +14,11 @@ LearningLayout learningLayout(Rect c,Rect g){
  case 0:out.title=L"사용할 캐릭터 선택";out.hint=L"등록한 캐릭터로 다음 이미지를 만듭니다.";
   input("consistency_enabled",L"일관성 사용",{},true);input("consistency_profile",L"캐릭터 / 대상",profileChoices(false));input("style_profile",L"스타일 (선택 사항)",profileChoices(true));actions({{1,L"새로고침",false},{2,L"저장",true},{3,L"새 캐릭터 등록",false}});break;
  case 1:out.title=L"새 캐릭터 등록";out.hint=L"이름과 항상 유지할 외형을 적어주세요.";
-  input("profile_name",L"프로필 이름");input("profile_kind",L"종류",{L"character",L"product",L"brand",L"style"});input("profile_description",L"유지할 외형 (영문)");input("profile_pipeline",L"기반 모델",{L"sdxl",L"illustrious"});if(developer())input("profile_auto_train",L"이미지가 모이면 자동 학습",{},true);actions({{4,L"프로필 등록",true}});break;
+  input("profile_name",L"프로필 이름");input("profile_kind",L"종류",{L"character",L"product",L"brand",L"style"});input("profile_description",L"유지할 외형 (영문)");input("profile_pipeline",L"기반 모델",{L"서버 기본",L"sdxl",L"illustrious"});if(developer())input("profile_auto_train",L"이미지가 모이면 자동 학습",{},true);actions({{4,L"프로필 등록",true}});break;
  case 2:out.title=L"학습 이미지";
   input("profile_target",L"프로필",managed);
-  actions({{5,L"이미지 추가",true},{6,L"새로고침",false},{23,L"선택 삭제",false}});
+  actions({{5,L"이미지 추가",true},{6,L"새로고침",false},{23,L"선택 삭제",false},{28,L"학습 모델 삭제",false},{29,L"프로필 삭제",false}});
+  {auto found=referenceProfiles.find(profileId(str(store->settings,"profile_target")));if(found!=referenceProfiles.end()&&str(found->second.value("training_setup",json::object()),"reason")=="pipeline_mismatch")actions({{30,L"서버 모델에 맞추기",true}});}
   input("profile_caption",L"공통 캡션 (선택)");out.inputs.back().control.h=40;y-=24;
   out.referencesY=y+4;out.referencesHeight=std::max(110.f,out.clip.h-y-82);y+=out.referencesHeight+12;
   if(developer())actions({{7,L"학습 시작",true},{8,L"학습 중지",false},{27,L"추가 중지",false}});break;
@@ -47,6 +48,9 @@ void learningAction(int action){switch(action){
  case 4:createLearningProfile();break;
  case 5:uploadLearningReference();break;
  case 23:deleteSelectedReferences();break;
+ case 28:manageLearningProfile("model");break;
+ case 29:manageLearningProfile("profile");break;
+ case 30:manageLearningProfile("align");break;
  case 27:referenceTransferCancel=true;break;
  case 6:loadReferenceProfile();break;
  case 7:save();featureRequest("train","POST","/learning/profiles/"+activeProfile()+"/train");break;

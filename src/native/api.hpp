@@ -8,6 +8,9 @@ struct Url {std::wstring host,path;INTERNET_PORT port;bool secure;explicit Url(c
 inline constexpr const char* serverHtmlError="서버 대신 웹 페이지가 응답했습니다. 네트워크 차단 여부를 운영자에게 확인하세요.";
 inline constexpr const char* serverJsonError="서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도하거나 운영자에게 문의하세요.";
 inline std::string userError(const std::string& message){
+ if(message.find("Stop training before modifying")!=std::string::npos)return "학습을 중지한 뒤 모델 또는 프로필을 수정하세요.";
+ if(message.find("Delete trained model before changing base")!=std::string::npos)return "학습 모델을 먼저 삭제한 뒤 기반 모델을 변경하세요.";
+ if(message.find("Trained model deletion failed")!=std::string::npos)return "학습 모델 파일을 삭제하지 못했습니다. 서버 파일 권한을 확인한 뒤 다시 시도하세요.";
  if(message.find("Training is not enabled for this API key")!=std::string::npos)return "서버에서 이 계정의 학습 허용 설정이 필요합니다.";
  if(message.find("Stop training before deleting")!=std::string::npos)return "학습을 중지한 뒤 이미지를 삭제하세요.";
  if(message.find("Reference deletion incomplete")!=std::string::npos)return "일부 파일을 삭제하지 못했습니다. 다시 삭제해 주세요.";

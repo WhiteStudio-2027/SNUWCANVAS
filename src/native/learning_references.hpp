@@ -54,17 +54,17 @@ std::wstring trainingState(const json& data)const{
  auto setup=data.value("training_setup",json::object());auto reason=str(setup,"reason");
  if(reason=="owner_not_allowed")return L"서버에서 이 계정의 학습 허용 설정이 필요합니다.";
  if(reason=="setup_required")return L"서버 학습 환경 설정이 필요합니다.";
- if(reason=="pipeline_mismatch")return L"프로필과 서버의 학습 모델이 다릅니다.";
+ if(reason=="pipeline_mismatch")return L"기반 모델이 다릅니다. ‘서버 모델에 맞추기’를 누르세요.";
  auto list=data.value("training",json::array());if(!list.empty()){
   auto state=str(list[0],"state");if(state=="running")return L"학습 중";if(state=="queued")return L"학습 대기 중";
-  if(state=="completed")return L"학습 완료";if(state=="failed")return L"학습 실패 · 상태 확인";
+  if(state=="reset")return L"학습 모델 삭제됨 · 이미지는 유지됩니다.";if(state=="completed")return L"학습 완료";if(state=="failed")return L"학습 실패 · 상태 확인";
   if(state=="blocked")return L"서버 학습 설정을 확인하세요.";
   if(state=="cancelled")return L"학습 중지됨";
  }
  int count=data.value("dataset_count",int(data.value("references",json::array()).size()));int minimum=setup.value("minimum_images",5);
  return count<minimum?L"학습 이미지 "+std::to_wstring(count)+L" / "+std::to_wstring(minimum)+L"장":L"학습 준비됨";
 }
-void loadReferenceProfile(){save();referenceThumbFailures.clear();referenceScroll=0;selectedReferences.clear();featureRequest("profile","GET","/learning/profiles/"+activeProfile());}
+void loadReferenceProfile(){cancelReferenceDownloads();referencePreviewError.clear();save();referenceThumbFailures.clear();referenceScroll=0;selectedReferences.clear();featureRequest("profile","GET","/learning/profiles/"+activeProfile());}
 void startReferenceTransfer(std::vector<fs::path> files,std::vector<std::string> deletions={}){
  if(learningBusy)return;if(files.size()>100)throw std::runtime_error("이미지는 한 번에 최대 100장까지 추가할 수 있습니다.");
  save();auto profile=activeProfile(),project=store->active;auto cfg=store->settings;auto root=store->root;auto* e=engine;
@@ -141,7 +141,7 @@ void paintReferenceList(const LearningLayout& layout,float offset){
  for(int i=first;i<last;i++){auto& row=refs[i];auto asset=str(row,"id");Rect r{area.x+4,area.y+i*58-referenceScroll,area.w-12,54};if(selectedReferences.count(asset))renderer.box(r,0x333336,0,3);
   Rect tick{r.x+5,r.y+15,24,24};renderer.box(tick,selectedReferences.count(asset)?0xeeeeee:0x55555a,0,4);if(selectedReferences.count(asset)){renderer.brush->SetColor(color(0x202022));renderer.target->DrawLine(D2D1::Point2F(tick.x+5,tick.y+12),D2D1::Point2F(tick.x+10,tick.y+17),renderer.brush.Get(),2.5f);renderer.target->DrawLine(D2D1::Point2F(tick.x+10,tick.y+17),D2D1::Point2F(tick.x+19,tick.y+7),renderer.brush.Get(),2.5f);}else renderer.box({tick.x+2,tick.y+2,20,20},0x19191a,0,2);
   auto path=referenceCache(key,asset);auto bitmap=thumbs.find(path);Rect thumb{r.x+34,r.y+3,48,48};
-  if(bitmap)renderer.bitmap(bitmap->Get(),thumb);else{renderer.box(thumb,0x252528,0,2);if(fs::exists(path)){if(!requested.count(path)&&images.add(path,revision))requested.insert(path);}else if(!referenceThumbFailures.count(key+"/"+(str(store->settings,"content_mode")=="hardcore"?"hardcore":"standard")+"/"+asset)&&pending.size()<12)pending.push_back(row);}
+  if(bitmap)renderer.bitmap(bitmap->Get(),thumb);else{renderer.box(thumb,0x252528,0,2);if(fs::exists(path)){if(!failedImages.count(path)&&!requested.count(path)&&images.add(path,revision))requested.insert(path);}else if(!referenceThumbFailures.count(key+"/"+(str(store->settings,"content_mode")=="hardcore"?"hardcore":"standard")+"/"+asset)&&pending.size()<12)pending.push_back(row);}
   auto meta=row.value("metadata",json::object());auto name=wide(str(meta,"filename"));if(name.empty())name=L"이미지 "+std::to_wstring(i+1);
   label(name,{r.x+94,r.y+5,r.w-100,22},false,0xeeeeee,12);auto obs=row.value("observations",json::object());label(std::to_wstring(obs.value("width",0))+L" × "+std::to_wstring(obs.value("height",0)),{r.x+94,r.y+28,r.w-100,18},false,0xbbbbbb,11);
   Rect hit{r.x,std::max(r.y,area.y),r.w,std::max(0.f,std::min(r.y+r.h,area.y+area.h)-std::max(r.y,area.y))};Rect checkHit{hit.x,hit.y,30,hit.h};
