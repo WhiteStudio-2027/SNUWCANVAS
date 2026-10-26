@@ -152,3 +152,9 @@ SDXL 속도 프리셋은 빠르게 20 / 균형 26 / 고품질 32 steps이며 고
 일반 클라이언트와 별도로 `data-custom-server`에 설정과 세션을 보관합니다.
 이 버전은 고정 서버용 자동 업데이트를 적용하지 않으며 EXE를 직접 교체합니다.
 빌드: `powershell -ExecutionPolicy Bypass -File tools/build_native.ps1 -CustomServer`.
+
+
+일반 `SNUWCANVAS.exe`의 서버 주소는 `http://localhost:8000`입니다.
+예전 외부 서버 주소가 저장돼 있어도 일반 버전 시작 시 로컬 주소로 바꿉니다.
+서버 주소가 바뀌면 이전 서버의 로컬 로그인 정보는 해제하고 다시 로그인합니다.
+기존 채널·이미지 파일은 삭제하지 않습니다. IP 입력용 별도 버전은 그대로 유지합니다.
