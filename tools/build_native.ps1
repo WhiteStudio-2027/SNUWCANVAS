@@ -1,4 +1,4 @@
-param([switch]$Publish)
+param([switch]$Publish,[switch]$CustomServer)
 $ErrorActionPreference = 'Stop'
 $clientRoot = Split-Path $PSScriptRoot -Parent
 $repoRoot = Split-Path $clientRoot -Parent
@@ -31,15 +31,18 @@ $windowsManifest = (Get-Content -LiteralPath (Join-Path $clientRoot 'src/native/
 [System.IO.File]::WriteAllText((Join-Path $clientRoot '.build/windows.manifest'), $windowsManifest, [System.Text.UTF8Encoding]::new($false))
 & $resourceCompiler -I . src/native/resources.rc -O coff -o .build/resources.o
 if ($LASTEXITCODE -ne 0) { throw 'Native resource build failed' }
-& $compiler -std=c++20 -O2 -DNDEBUG -municode -mwindows -static -static-libgcc -static-libstdc++ -finput-charset=UTF-8 -I src/native src/native/main.cpp src/native/app.cpp .build/resources.o -o .build/SNUWCANVAS.next.exe -ld2d1 -ld3d11 -ldxgi -ldwrite -lwindowscodecs -lwinhttp -lole32 -loleaut32 -lshell32 -luuid -lcomctl32 -lcomdlg32 -ldwmapi -luxtheme -lgdi32 -luser32 -lshlwapi -lcrypt32 -ladvapi32 -lversion
+[string[]]$flavor = @()
+if ($CustomServer) { $flavor = @('-DSNUW_CUSTOM_SERVER=1') }
+& $compiler @flavor -std=c++20 -O2 -DNDEBUG -municode -mwindows -static -static-libgcc -static-libstdc++ -finput-charset=UTF-8 -I src/native src/native/main.cpp src/native/app.cpp .build/resources.o -o .build/SNUWCANVAS.next.exe -ld2d1 -ld3d11 -ldxgi -ldwrite -lwindowscodecs -lwinhttp -lole32 -loleaut32 -lshell32 -luuid -lcomctl32 -lcomdlg32 -ldwmapi -luxtheme -lgdi32 -luser32 -lshlwapi -lcrypt32 -ladvapi32 -lversion
 if ($LASTEXITCODE -ne 0) { throw 'Native C++ build failed' }
 Write-Output 'Native EXE compiled.'
 $candidate = Join-Path $clientRoot '.build/SNUWCANVAS.next.exe'
-$target = Join-Path $repoRoot 'SNUWCANVAS.exe'
+$targetName = if ($CustomServer) {'SNUWCANVAS-custom-server.exe'} else {'SNUWCANVAS.exe'}
+$target = Join-Path $repoRoot $targetName
 if (Test-Path -LiteralPath $target) {
     [System.IO.File]::Replace($candidate, $target, [System.Management.Automation.Language.NullString]::Value)
 } else {
     [System.IO.File]::Move($candidate, $target)
 }
-Write-Output 'Updated the single distribution: workspace root SNUWCANVAS.exe. User settings preserved.'
+Write-Output "Updated: $target. User settings preserved."
 # -Publish remains accepted for existing commands; no duplicate ZIP/EXE is created.

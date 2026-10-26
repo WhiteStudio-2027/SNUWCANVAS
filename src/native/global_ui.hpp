@@ -11,6 +11,12 @@ void accountSignIn(bool creating=false){
  auto usage=request("GET",joinUrl(base,"/api/usage"),accountCredential).object();switchLocalAccount(profile);quotaUsage=usage;
  welcome=false;page=0;save();status=L"로그인했습니다.";rebuild(false);scan();if(store->state["selected"].is_string()){auto path=fs::path(wide(store->state["selected"].get<std::string>()));if(fs::is_regular_file(path)&&localImageVisible(store->settings,path))select(path);}
 }
+void configureCustomServer(){
+ if(!customServerEdition)return;if(accountWorkspaceBusy())throw std::runtime_error("진행 중인 작업을 마친 뒤 서버를 변경하세요.");
+ auto address=askServerAddress(hwnd,str(store->settings,"api"));if(address.empty()||address==str(store->settings,"api"))return;
+ if(!accountProfile.empty()&&MessageBoxW(hwnd,L"서버를 변경하면 이 PC에서 로그아웃됩니다. 변경할까요?",L"서버 변경",MB_YESNO|MB_ICONQUESTION)!=IDYES)return;
+ if(accountSession)accountSession->clear();switchLocalAccount(json::object());store->settings["api"]=address;store->settings["api_key"]="";store->settings["auto_update"]=false;atomicWrite(store->baseRoot/"config/server-address.json",json{{"api",address}}.dump(2));store->save();welcome=true;rebuild(false);
+}
 void accountMenu(){if(accountProfile.empty()){accountSignIn();return;}setPage(13);}
 void accountOverlay(){
  if(imageSearch)ShowWindow(imageSearch,accountPopover||referencePreviewMode()?SW_HIDE:SW_SHOW);if(!accountPopover)return;
@@ -25,6 +31,7 @@ void accountOverlay(){
 bool hardcore()const{return str(store->settings,"content_mode","standard")=="hardcore";}
 void toggleContentMode(){{std::lock_guard lock(engine->mutex);if(engine->busy||!engine->tasks.empty()){status=L"생성 작업이 끝난 뒤 모드를 변경하세요.";return;}}save();if(!hardcore()){modeAuthKey=str(store->settings,"api_key");modeAuthApi=str(store->settings,"api");featureRequest("enable_hardcore","GET","/auth/info");return;}store->settings["content_mode"]="standard";selected.clear();preview.Reset();save();rebuild(false);scan();}
 void globalSettingsPaint(Rect c){
+ if constexpr(customServerEdition){button({c.x+6,230,210,32},L"서버 주소 변경",[this]{configureCustomServer();});label(wide(str(store->settings,"api")),{c.x+6,270,c.w-12,27},false,0xeeeeee,12);}
  button({c.x+6,94,std::min(developer()?160.f:210.f,c.w-(developer()?104.f:12.f)),32},hardcore()?L"하드코어 ON":L"하드코어 OFF",[this]{toggleContentMode();},false,!engine->busy&&!learningBusy);
 
  if(!hwnd){float y=150;for(auto title:{L"앱 설정"}){label(title,{c.x+6,y,140,27},false,0xb0b0b7,12);renderer.box({c.x+150,y,c.w-162,27},0x161617,0x3b3e48,3);label(L"설정 입력",{c.x+158,y,c.w-178,27},false,0x858590,12);y+=37;}label(L"스플래시 최소 2초",{c.x+6,y,140,25},false,0xb0b0b7,12);}

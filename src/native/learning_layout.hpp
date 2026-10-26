@@ -82,7 +82,7 @@ void learningWorkspacePaint(Rect c,Rect g){
   auto step=trainingStatus.value("step",0),total=trainingStatus.value("total_steps",0),seconds=trainingStatus.value("elapsed_seconds",0);
   std::wstring details=(total?std::to_wstring(step)+L" / "+std::to_wstring(total)+L" 스텝 · ":L"")+std::to_wstring(seconds/60)+L"분 "+std::to_wstring(seconds%60)+L"초";
   label(details,{clip.x+10,y+29,clip.w-20,20},false,0xdddddd,12);
-  renderer.box({clip.x+10,y+53,clip.w-20,4},0x38383b,0,1);if(trainingStatus.contains("percent"))renderer.box({clip.x+10,y+53,(clip.w-20)*std::clamp(trainingStatus.value("percent",0.),0.,100.)/100,4},0xeeeeee,0,1);
+  renderer.box({clip.x+10,y+53,clip.w-20,4},0x38383b,0,1);if(trainingStatus.contains("percent"))renderer.box({clip.x+10,y+53,(clip.w-20)*float(std::clamp(trainingStatus.value("percent",0.),0.,100.)/100),4},0xeeeeee,0,1);
   if(str(trainingStatus,"state")=="failed")label(wide(str(trainingStatus,"message")),{clip.x+10,y+62,clip.w-20,34},false,0xffb4b4,11);
   auto lines=trainingStatus.value("logs",json::array());int begin=std::max(0,int(lines.size())-6);float lineY=y+98;for(int i=begin;i<int(lines.size());i++){label(wide(lines[i].get<std::string>()),{clip.x+10,lineY,clip.w-20,15},false,0xdddddd,10);lineY+=15;}
  }

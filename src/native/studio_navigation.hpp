@@ -34,5 +34,6 @@ void paintWelcome(){
  renderer.text(L"이미지로 시작하는 새로운 작업",{x+40,y+157,w-80,30},0xb2b1c7,15,false,true);
  button({x+40,y+242,w-80,42},L"로그인",[this]{accountSignIn();},true);
  button({x+40,y+296,w-80,42},L"계정 만들기",[this]{accountSignIn(true);});
+ if constexpr(customServerEdition)button({x+40,y+350,w-80,32},L"서버 주소 변경",[this]{configureCustomServer();});
 
 }

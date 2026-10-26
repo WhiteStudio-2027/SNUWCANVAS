@@ -3,8 +3,21 @@
 #include "identity.hpp"
 #include "account_session.hpp"
 namespace snuw {
+#ifdef SNUW_CUSTOM_SERVER
+inline constexpr bool customServerEdition=true;
+#else
+inline constexpr bool customServerEdition=false;
+#endif
+
 struct Internet {HINTERNET h=nullptr;Internet()=default;explicit Internet(HINTERNET p):h(p){}~Internet(){if(h)WinHttpCloseHandle(h);}Internet(const Internet&)=delete;operator HINTERNET()const{return h;}};
 struct Url {std::wstring host,path;INTERNET_PORT port;bool secure;explicit Url(const std::string& value){auto s=wide(value);URL_COMPONENTS u{};u.dwStructSize=sizeof u;u.dwHostNameLength=u.dwUrlPathLength=u.dwExtraInfoLength=DWORD(-1);if(!WinHttpCrackUrl(s.c_str(),0,0,&u)||(u.nScheme!=INTERNET_SCHEME_HTTP&&u.nScheme!=INTERNET_SCHEME_HTTPS)||u.dwUserNameLength||u.dwPasswordLength)throw std::runtime_error("HTTP(S) 서버 주소를 확인하세요.");host.assign(u.lpszHostName,u.dwHostNameLength);path.assign(u.lpszUrlPath,u.dwUrlPathLength);if(u.dwExtraInfoLength)path.append(u.lpszExtraInfo,u.dwExtraInfoLength);if(path.empty())path=L"/";port=u.nPort;secure=u.nScheme==INTERNET_SCHEME_HTTPS;}};
+inline std::string normalizeServerAddress(std::string value){
+ auto first=value.find_first_not_of(" \t\r\n"),last=value.find_last_not_of(" \t\r\n");if(first==std::string::npos)throw std::runtime_error("서버 주소를 입력하세요.");value=value.substr(first,last-first+1);
+ if(value.find_first_of(" \t\r\n")!=std::string::npos)throw std::runtime_error("서버 주소에 공백을 넣을 수 없습니다.");
+ if(value.find("://")==std::string::npos){if(value.find(':')==std::string::npos||value.back()==']')value+=":8000";value="http://"+value;}
+ if(value.find_first_of("@?#")!=std::string::npos)throw std::runtime_error("계정 정보나 쿼리 없이 서버 주소만 입력하세요.");
+ Url parsed(value);if(parsed.host.empty()||parsed.port==0)throw std::runtime_error("서버 IP와 포트를 확인하세요.");if(!parsed.path.empty()&&parsed.path!=L"/")throw std::runtime_error("서버 IP와 포트만 입력하세요. 예: 192.168.0.107:8000");while(!value.empty()&&value.back()=='/')value.pop_back();return value;
+}
 inline constexpr const char* serverHtmlError="서버 대신 웹 페이지가 응답했습니다. 네트워크 차단 여부를 운영자에게 확인하세요.";
 inline constexpr const char* serverJsonError="서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도하거나 운영자에게 문의하세요.";
 inline std::string userError(const std::string& message){
