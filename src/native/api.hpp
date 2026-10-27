@@ -1,5 +1,6 @@
 #pragma once
 #include "model.hpp"
+#include <bcrypt.h>
 #include "identity.hpp"
 #include "account_session.hpp"
 namespace snuw {
@@ -21,6 +22,10 @@ inline std::string normalizeServerAddress(std::string value){
 inline constexpr const char* serverHtmlError="서버 대신 웹 페이지가 응답했습니다. 네트워크 차단 여부를 운영자에게 확인하세요.";
 inline constexpr const char* serverJsonError="서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도하거나 운영자에게 문의하세요.";
 inline std::string userError(const std::string& message){
+ if(message.find("Server access required")!=std::string::npos)return "메인 서버 접속 암호 확인이 필요합니다. 로그아웃 후 다시 로그인하세요.";
+ if(message.find("Server access password invalid")!=std::string::npos)return "메인 서버 접속 암호를 확인하세요.";
+ if(message.find("Server access password is not configured")!=std::string::npos)return "서버 관리자가 접속 암호를 먼저 설정해야 합니다.";
+
  if(message.find("Stop training before modifying")!=std::string::npos)return "학습을 중지한 뒤 모델 또는 프로필을 수정하세요.";
  if(message.find("Delete trained model before changing base")!=std::string::npos)return "학습 모델을 먼저 삭제한 뒤 기반 모델을 변경하세요.";
  if(message.find("Trained model deletion failed")!=std::string::npos)return "학습 모델 파일을 삭제하지 못했습니다. 서버 파일 권한을 확인한 뒤 다시 시도하세요.";
@@ -46,6 +51,11 @@ inline bool localImageVisible(const json& cfg,const fs::path& file){if(str(cfg,"
 inline std::string joinUrl(const std::string& base,const std::string& path){if(path.rfind("http://",0)==0||path.rfind("https://",0)==0)return path;auto s=base;while(!s.empty()&&s.back()=='/')s.pop_back();return s+(path.empty()||path[0]=='/'?"":"/")+path;}
 inline bool sameOrigin(const std::string& a,const std::string& b){Url x(a),y(b);return _wcsicmp(x.host.c_str(),y.host.c_str())==0&&x.port==y.port&&x.secure==y.secure;}
 
+inline constexpr const char* MAIN_SERVER_URL="http://1.240.182.65:8000";
+inline constexpr const char* LOCAL_SERVER_URL="http://localhost:8000";
+inline std::mutex serverAccessMutex;inline std::string serverAccessOrigin,serverAccessToken;inline ULONGLONG serverAccessExpires=0;
+inline bool mainServer(const std::string& base){try{return Url(base).host==L"1.240.182.65";}catch(...){return false;}}
+inline std::string serverAccessFor(const std::string& url){std::lock_guard lock(serverAccessMutex);return !serverAccessOrigin.empty()&&GetTickCount64()<serverAccessExpires&&sameOrigin(serverAccessOrigin,url)?serverAccessToken:"";}
 inline thread_local const char* networkMode="standard";
 inline thread_local const std::atomic_bool* networkStop=nullptr;
 inline thread_local auto networkDeadline=std::chrono::steady_clock::time_point::max();
@@ -88,16 +98,18 @@ inline Response request(const std::string& method,const std::string& url,const s
  Internet connection(WinHttpConnect(session,u.host.c_str(),u.port,0));AsyncTransfer req(WinHttpOpenRequest(connection,wide(method).c_str(),u.path.c_str(),nullptr,WINHTTP_NO_REFERER,WINHTTP_DEFAULT_ACCEPT_TYPES,u.secure?WINHTTP_FLAG_SECURE:0));req.start();DWORD redirect=WINHTTP_OPTION_REDIRECT_POLICY_NEVER;WinHttpSetOption(req,WINHTTP_OPTION_REDIRECT_POLICY,&redirect,sizeof redirect);
  auto requestMode=accountControlRequest(u)?"standard":networkMode;
  std::wstring headers=L"X-Client-Version: "+wide(CLIENT_VERSION)+L"\r\n";if(deviceIdentity)headers+=L"X-Client-Id: "+wide(deviceIdentity->uuid)+L"\r\n";headers+=L"Content-Type: "+wide(content)+L"\r\nX-Content-Mode: "+wide(requestMode)+L"\r\n";if(!bearer.empty())headers+=L"Authorization: Bearer "+wide(bearer)+L"\r\n";else if(!key.empty())headers+=L"X-API-Key: "+wide(key)+L"\r\n";
+ auto entryToken=serverAccessFor(url);if(!entryToken.empty()){headers+=L"X-Server-Access: "+wide(entryToken)+L"\r\n";DWORD redirectPolicy=WINHTTP_OPTION_REDIRECT_POLICY_NEVER;WinHttpSetOption(req,WINHTTP_OPTION_REDIRECT_POLICY,&redirectPolicy,sizeof redirectPolicy);}
  req.operation([&]{return WinHttpSendRequest(req,headers.c_str(),DWORD(-1),body.empty()?WINHTTP_NO_REQUEST_DATA:(void*)body.data(),DWORD(body.size()),DWORD(body.size()),(DWORD_PTR)&req);},stop,deadline);
  req.operation([&]{return WinHttpReceiveResponse(req,nullptr);},stop,deadline);
  Response out;DWORD n=sizeof out.code;WinHttpQueryHeaders(req,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,WINHTTP_HEADER_NAME_BY_INDEX,&out.code,&n,WINHTTP_NO_HEADER_INDEX);
  wchar_t media[256];n=sizeof media;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_CONTENT_TYPE,nullptr,media,&n,nullptr))out.media=utf8(media);
  wchar_t retry[32];n=sizeof retry;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_RETRY_AFTER,nullptr,retry,&n,nullptr))out.retry=utf8(retry);
  size_t receivedBytes=0;for(;;){DWORD readSize=sizeof req.buffer;if(onChunk&&out.code<300){auto available=req.operation([&]{return WinHttpQueryDataAvailable(req,nullptr);},stop,deadline);if(!available)break;readSize=std::min<DWORD>(available,sizeof req.buffer);}auto got=req.operation([&]{return WinHttpReadData(req,req.buffer,readSize,nullptr);},stop,deadline);if(!got)break;if(got>limit-receivedBytes)throw std::runtime_error("서버 응답 크기 제한 초과");receivedBytes+=got;if(onChunk&&out.code<300)onChunk(std::string(req.buffer,got));else out.data.append(req.buffer,got);}
- if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==429)return out;throw std::runtime_error("HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason));}return out;
+ if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==403&&reason=="Server access required"){std::lock_guard lock(serverAccessMutex);serverAccessToken.clear();serverAccessExpires=0;}if(out.code==429)return out;throw std::runtime_error("HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason));}return out;
 }
 
 
+#include "server_access_client.hpp"
 inline int accountSessionTest(const fs::path& folder,const std::string& base){try{deviceIdentity=std::make_shared<DeviceIdentity>(folder);accountSession=std::make_shared<AccountSession>(folder);accountSession->accept(base,json{{"access_token",std::string(32,'a')},{"refresh_token",std::string(60,'r')},{"expires_in",1},{"account_id","test-account"}});accountSession=std::make_shared<AccountSession>(folder);std::exception_ptr error;std::mutex errors;auto call=[&]{try{NetworkScope generation(nullptr,std::chrono::steady_clock::now()+std::chrono::seconds(20),"hardcore");auto reply=request("GET",joinUrl(base,"/protected"),accountCredential).object();if(std::string(networkMode)!="hardcore")throw std::runtime_error("Generation mode was changed by token refresh");if(!reply.value("ok",false))throw std::runtime_error("Bearer request failed");}catch(...){std::lock_guard lock(errors);error=std::current_exception();}};std::thread one(call),two(call);one.join();two.join();if(error)std::rethrow_exception(error);bool blocked=false;try{request("GET","http://127.0.0.1:1/protected",accountCredential);}catch(...){blocked=true;}if(!blocked)throw std::runtime_error("Cross-origin session accepted");auto encrypted=readFile(folder/"config/account_session.bin");if(encrypted.find(std::string(32,'b'))!=std::string::npos||encrypted.find(std::string(60,'s'))!=std::string::npos)throw std::runtime_error("Plaintext token persisted");auto loggedOut=request("POST",joinUrl(base,accountLogoutPath(true)),accountCredential,"{}","application/json").object();if(!loggedOut.value("logged_out",false))throw std::runtime_error("Logout-all response failed");accountSession->clear();AccountSession cleared(folder);if(cleared.available())throw std::runtime_error("Logout did not clear session");atomicWrite(folder/"account-session-result.json",json{{"ok",true},{"gui_opened",false},{"cross_origin_blocked",blocked},{"logout_all",true}}.dump(2));return 0;}catch(const std::exception& e){atomicWrite(folder/"account-session-result.json",json{{"ok",false},{"error",e.what()},{"gui_opened",false}}.dump(2));return 1;}}
 inline void beforeDeviceRequest(const std::string& url,const std::string& key){
  static thread_local bool active=false;static std::map<std::string,std::chrono::steady_clock::time_point> ready;

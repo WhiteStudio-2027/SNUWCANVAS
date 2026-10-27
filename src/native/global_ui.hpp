@@ -30,7 +30,12 @@ void accountOverlay(){
 }
 bool hardcore()const{return str(store->settings,"content_mode","standard")=="hardcore";}
 void toggleContentMode(){{std::lock_guard lock(engine->mutex);if(engine->busy||!engine->tasks.empty()){status=L"생성 작업이 끝난 뒤 모드를 변경하세요.";return;}}save();if(!hardcore()){modeAuthKey=str(store->settings,"api_key");modeAuthApi=str(store->settings,"api");featureRequest("enable_hardcore","GET","/auth/info");return;}store->settings["content_mode"]="standard";selected.clear();preview.Reset();save();rebuild(false);scan();}
+void changeServerConnection(){
+ if(accountWorkspaceBusy())throw std::runtime_error("작업이 끝난 뒤 서버를 변경하세요.");auto selected=chooseServerConnection(hwnd,store->baseRoot,str(store->settings,"api"));if(selected==str(store->settings,"api"))return;
+ switchLocalAccount(json::object());store->settings["api"]=selected;store->save();welcome=true;rebuild(false);
+}
 void globalSettingsPaint(Rect c){
+ if(!customServerEdition)button({c.x+6,230,210,32},L"서버 세부 설정",[this]{changeServerConnection();});
  if constexpr(customServerEdition){button({c.x+6,230,210,32},L"서버 주소 변경",[this]{configureCustomServer();});label(wide(str(store->settings,"api")),{c.x+6,270,c.w-12,27},false,0xeeeeee,12);}
  button({c.x+6,94,std::min(developer()?160.f:210.f,c.w-(developer()?104.f:12.f)),32},hardcore()?L"하드코어 ON":L"하드코어 OFF",[this]{toggleContentMode();},false,!engine->busy&&!learningBusy);
 

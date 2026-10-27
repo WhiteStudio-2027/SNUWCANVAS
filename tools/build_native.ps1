@@ -33,7 +33,7 @@ $windowsManifest = (Get-Content -LiteralPath (Join-Path $clientRoot 'src/native/
 if ($LASTEXITCODE -ne 0) { throw 'Native resource build failed' }
 [string[]]$flavor = @()
 if ($CustomServer) { $flavor = @('-DSNUW_CUSTOM_SERVER=1') }
-& $compiler @flavor -std=c++20 -O2 -DNDEBUG -municode -mwindows -static -static-libgcc -static-libstdc++ -finput-charset=UTF-8 -I src/native src/native/main.cpp src/native/app.cpp .build/resources.o -o .build/SNUWCANVAS.next.exe -ld2d1 -ld3d11 -ldxgi -ldwrite -lwindowscodecs -lwinhttp -lole32 -loleaut32 -lshell32 -luuid -lcomctl32 -lcomdlg32 -ldwmapi -luxtheme -lgdi32 -luser32 -lshlwapi -lcrypt32 -ladvapi32 -lversion
+& $compiler @flavor -std=c++20 -O2 -DNDEBUG -municode -mwindows -static -static-libgcc -static-libstdc++ -finput-charset=UTF-8 -I src/native src/native/main.cpp src/native/app.cpp .build/resources.o -o .build/SNUWCANVAS.next.exe -ld2d1 -ld3d11 -ldxgi -ldwrite -lwindowscodecs -lwinhttp -lole32 -loleaut32 -lshell32 -luuid -lcomctl32 -lcomdlg32 -ldwmapi -luxtheme -lgdi32 -luser32 -lshlwapi -lcrypt32 -ladvapi32 -lbcrypt -lversion
 if ($LASTEXITCODE -ne 0) { throw 'Native C++ build failed' }
 Write-Output 'Native EXE compiled.'
 $candidate = Join-Path $clientRoot '.build/SNUWCANVAS.next.exe'
