@@ -25,8 +25,38 @@ inline void establishServerAccess(const std::string& base,const std::string& pas
  if(token.size()<32||token.size()>128||token.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")!=std::string::npos)throw std::runtime_error("서버 접속 응답 오류");
  std::lock_guard lock(serverAccessMutex);serverAccessOrigin=base;serverAccessToken=token;serverAccessExpires=GetTickCount64()+ULONGLONG(std::clamp(response.value("expires_in",0),0,43200))*1000;
 }
+// Bound to the current Windows user with DPAPI; never stored in ordinary settings.
+inline fs::path serverAccessStore;
+inline void rememberServerAccess(const std::string& base,const std::string& password){
+ if(serverAccessStore.empty())return;
+ auto raw=json{{"server",base},{"password",password}}.dump();DATA_BLOB input{DWORD(raw.size()),(BYTE*)raw.data()},output{};
+ if(!CryptProtectData(&input,L"SNUWCANVAS server entry",nullptr,nullptr,nullptr,CRYPTPROTECT_UI_FORBIDDEN,&output))throw std::runtime_error("접속 정보 저장 실패");
+ try{atomicWrite(serverAccessStore,std::string((char*)output.pbData,output.cbData));}catch(...){SecureZeroMemory(raw.data(),raw.size());LocalFree(output.pbData);throw;}
+ SecureZeroMemory(raw.data(),raw.size());LocalFree(output.pbData);
+}
+inline bool restoreServerAccess(const std::string& base){
+ if(!serverAccessFor(base).empty())return true;
+ if(serverAccessStore.empty()||!fs::exists(serverAccessStore))return false;
+ std::string raw;json saved;
+ try{
+  auto encrypted=readFile(serverAccessStore);if(encrypted.empty()||encrypted.size()>65536)return false;
+  DATA_BLOB input{DWORD(encrypted.size()),(BYTE*)encrypted.data()},output{};
+  if(!CryptUnprotectData(&input,nullptr,nullptr,nullptr,nullptr,CRYPTPROTECT_UI_FORBIDDEN,&output))return false;
+  raw.assign((char*)output.pbData,output.cbData);SecureZeroMemory(output.pbData,output.cbData);LocalFree(output.pbData);
+  saved=json::parse(raw);SecureZeroMemory(raw.data(),raw.size());
+  if(!sameOrigin(str(saved,"server"),base))return false;
+  std::atomic_bool cancel=false;NetworkScope scope(&cancel,std::chrono::steady_clock::now()+std::chrono::seconds(20));
+  establishServerAccess(base,str(saved,"password"),&cancel);
+  auto& password=saved["password"].get_ref<std::string&>();SecureZeroMemory(password.data(),password.size());return true;
+ }catch(...){if(!raw.empty())SecureZeroMemory(raw.data(),raw.size());if(saved.contains("password")&&saved["password"].is_string()){auto& password=saved["password"].get_ref<std::string&>();SecureZeroMemory(password.data(),password.size());}return false;}
+}
+
 inline int serverAccessTest(const fs::path& folder,const std::string& base){try{
- establishServerAccess(base,"test-shared-password-1234",nullptr);auto result=request("GET",joinUrl(base,"/protected")).object();if(!result.value("ok",false))throw std::runtime_error("Server entry gate did not authorize the request");
+ serverAccessStore=folder/"server-access.bin";bool restored=fs::exists(serverAccessStore);
+ if(restored){if(!restoreServerAccess(base))throw std::runtime_error("Saved entry could not restore automatic login");}
+ else{establishServerAccess(base,"test-shared-password-1234",nullptr);rememberServerAccess(base,"test-shared-password-1234");}
+ auto encrypted=readFile(serverAccessStore);if(encrypted.find("test-shared-password")!=std::string::npos)throw std::runtime_error("Entry password saved unencrypted");
+ auto result=request("GET",joinUrl(base,"/protected")).object();if(!result.value("ok",false))throw std::runtime_error("Server entry gate did not authorize the request");
  if(!serverAccessFor("http://example.invalid:8000").empty())throw std::runtime_error("Server entry token leaked across origins");
- atomicWrite(folder/"server-access-result.json",json{{"ok",true},{"password_not_transmitted",true},{"cross_origin_blocked",true}}.dump());return 0;
+ atomicWrite(folder/"server-access-result.json",json{{"ok",true},{"restored",restored},{"password_not_transmitted",true},{"cross_origin_blocked",true}}.dump());return 0;
  }catch(const std::exception& e){atomicWrite(folder/"server-access-result.json",json{{"ok",false},{"error",e.what()}}.dump());return 1;}}

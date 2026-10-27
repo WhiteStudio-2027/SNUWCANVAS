@@ -21,6 +21,9 @@ class GateClientTests(unittest.TestCase):
   server=ThreadingHTTPServer(('127.0.0.1',0),Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
   try:
    with tempfile.TemporaryDirectory(dir=ROOT/'.build') as folder:
-    result=subprocess.run([str(EXE),'--server-access-test',folder,f'http://127.0.0.1:{server.server_port}'],timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
-    status=json.loads((Path(folder)/'server-access-result.json').read_text());self.assertEqual(result.returncode,0,status);self.assertTrue(status['password_not_transmitted']);self.assertNotIn('test-shared-password',str(calls))
+    for restart in range(2):
+     result=subprocess.run([str(EXE),'--server-access-test',folder,f'http://127.0.0.1:{server.server_port}'],timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
+     status=json.loads((Path(folder)/'server-access-result.json').read_text());self.assertEqual(result.returncode,0,status);self.assertTrue(status['password_not_transmitted']);self.assertEqual(status['restored'],bool(restart));self.assertNotIn('test-shared-password',str(calls))
+    self.assertNotIn(b'test-shared-password',(Path(folder)/'server-access.bin').read_bytes())
+    self.assertEqual(sum(path.endswith('/unlock') for path,_,_ in calls),2)
   finally:server.shutdown();server.server_close();thread.join(timeout=2)
