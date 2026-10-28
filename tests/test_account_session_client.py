@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import json
+import hashlib
 import subprocess
 import tempfile
 import threading
@@ -40,6 +41,8 @@ class AccountSessionClientTests(unittest.TestCase):
                 calls.append(('POST', self.path, dict(self.headers), body))
                 if self.path.startswith('/api/auth/') and self.headers.get('X-Content-Mode')!='standard':
                     self.reply({'detail':'This key is restricted to standard mode'},403);return
+                if self.path=='/api/devices/register':
+                    self.reply({'registered':True});return
                 if self.path=='/api/auth/logout-all':
                     self.reply({'logged_out':True});return
                 self.reply({'access_token': 'b' * 32, 'refresh_token': 's' * 60,
@@ -47,6 +50,8 @@ class AccountSessionClientTests(unittest.TestCase):
 
             def do_GET(self):
                 calls.append(('GET', self.path, dict(self.headers), None))
+                if self.path=='/api/version':self.reply({'min_client_version':'v2.0.0'});return
+                if self.path=='/api/legal':self.reply({'version':'session-test','text':'Session test consent','digest':hashlib.sha256(b'Session test consent').hexdigest()});return
                 self.reply({'ok': self.headers.get('Authorization') == 'Bearer ' + 'b' * 32})
 
         server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
@@ -72,7 +77,7 @@ class AccountSessionClientTests(unittest.TestCase):
                 self.assertEqual(refreshes[0][1], '/api/auth/refresh')
                 self.assertEqual(refreshes[0][3], {'refresh_token': 'r' * 60})
                 self.assertTrue(all(row[2].get('X-Content-Mode')=='standard' for row in refreshes+logouts))
-                requests = [row for row in calls if row[0] == 'GET']
+                requests = [row for row in calls if row[0] == 'GET' and row[1]=='/protected']
                 self.assertEqual(len(requests), 2)
                 self.assertTrue(all(row[2].get('X-Content-Mode')=='hardcore' for row in requests))
                 self.assertTrue(all('X-API-Key' not in row[2] for row in calls))
