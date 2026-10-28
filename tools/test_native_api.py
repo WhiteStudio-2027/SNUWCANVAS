@@ -73,7 +73,7 @@ def main():
                     import time
                     deadline=time.monotonic()+3
                     while time.monotonic()<deadline:
-                        if any(p.stat().st_size>0 for p in path.glob('generated/*.png')):break
+                        if any(p.stat().st_size>0 for p in (path/'generated').rglob('*.png')):break
                         time.sleep(.01)
                     else:errors.append('First image was not saved while stream remained open')
                     first_image_received.set()
@@ -92,11 +92,16 @@ def main():
             assert first_image_received.is_set(),calls
             assert calls.count('/jobs/editing-test/events')==1,calls
             assert '/jobs/generation-test' not in calls,calls
-            images=list((path/'generated').glob('*.png'));assert len(images)==3,images
+            images=list((path/'generated').rglob('*.png'));assert len(images)==3,images
             for image in images:
                 with Image.open(image) as data:assert data.size==(32,48)
-                assert 'native-test-key' not in image.with_suffix('.json').read_text(encoding='utf-8')
-                assert 'caption_api_key' not in json.loads(image.with_suffix('.json').read_text(encoding='utf-8'))['settings']
+                relative=image.relative_to(path/'generated')
+                assert relative.parts[0]=='User' and relative.parts[1]=='Standard',relative
+                metadata=path/'generated/_metadata'/relative.parts[0]/relative.parts[-2]/image.with_suffix('.json').name
+                assert metadata.is_file(),metadata
+                assert not image.with_suffix('.json').exists()
+                assert 'native-test-key' not in metadata.read_text(encoding='utf-8')
+                assert 'caption_api_key' not in json.loads(metadata.read_text(encoding='utf-8'))['settings']
             print(json.dumps(dict(report,multipart_validated=True,steps_preserved=True,metadata_key_excluded=True),ensure_ascii=False))
     finally:server.shutdown();server.server_close();thread.join(timeout=2)
 
