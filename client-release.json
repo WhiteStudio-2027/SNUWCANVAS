@@ -1,0 +1,7 @@
+{
+  "version": "v3.5.0",
+  "min_client_version": "v2.0.0",
+  "sha256": "55e576fbb5921ee2d9e81383a13cfe9924b68a356e57a68371004147f87992be",
+  "size": 20857966,
+  "notes": "Windows 권한·관리 기능 및 저장 구조 개선"
+}
