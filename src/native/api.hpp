@@ -23,6 +23,9 @@ inline std::string normalizeServerAddress(std::string value){
 inline constexpr const char* serverHtmlError="서버 대신 웹 페이지가 응답했습니다. 네트워크 차단 여부를 운영자에게 확인하세요.";
 inline constexpr const char* serverJsonError="서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도하거나 운영자에게 문의하세요.";
 inline std::string userError(const std::string& message){
+ if(message.find("[COMFY_VALIDATION]")!=std::string::npos||message.find("ComfyUI rejected workflow")!=std::string::npos)return "생성 엔진이 모델 또는 워크플로우 설정을 거절했습니다. 서버 설치·복구 후 다시 시도하세요. 상세 원인은 서버 로그의 reason 항목을 확인하세요.";
+ if(message.find("[COMFY_CONNECTION]")!=std::string::npos||message.find("ComfyUI connection failed")!=std::string::npos)return "이미지 생성 엔진에 연결하지 못했습니다. 서버 PC의 ComfyUI 실행 상태를 확인하세요.";
+ if(message.find("[COMFY_RESPONSE]")!=std::string::npos)return "생성 엔진이 작업 ID를 반환하지 않았습니다. 서버의 ComfyUI 로그를 확인하세요.";
  if(message.find("Privacy consent registration required")!=std::string::npos)return "개인정보 안내 확인과 기기 등록이 필요합니다. 다시 로그인해 주세요.";
  if(message.find("Server access required")!=std::string::npos)return "메인 서버 접속 암호 확인이 필요합니다. 로그아웃 후 다시 로그인하세요.";
  if(message.find("Server access password invalid")!=std::string::npos)return "메인 서버 접속 암호를 확인하세요.";
