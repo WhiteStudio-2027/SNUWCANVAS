@@ -13,11 +13,11 @@ LearningLayout learningLayout(Rect c,Rect g){
  if(page==7){switch(consistencyView){
  case 0:out.title=L"사용할 캐릭터 선택";out.hint=L"등록한 캐릭터로 다음 이미지를 만듭니다.";
   input("consistency_enabled",L"일관성 사용",{},true);input("consistency_profile",L"캐릭터 / 대상",profileChoices(false));input("style_profile",L"스타일 (선택 사항)",profileChoices(true));actions({{1,L"새로고침",false},{2,L"저장",true},{3,L"새 캐릭터 등록",false}});break;
- case 1:out.title=L"새 캐릭터 등록";out.hint=L"이름과 항상 유지할 외형을 적어주세요.";
+ case 1:if(!editingProfile.empty()){out.title=L"프로필 편집";input("profile_name",L"이름");input("profile_description",L"유지할 외형 (영문)");actions({{32,L"저장",true},{33,L"취소",false}});break;}out.title=L"새 캐릭터 등록";out.hint=L"이름과 항상 유지할 외형을 적어주세요.";
   input("profile_name",L"프로필 이름");input("profile_kind",L"종류",{L"character",L"product",L"brand",L"style"});input("profile_description",L"유지할 외형 (영문)");input("profile_pipeline",L"기반 모델",{L"서버 기본",L"sdxl",L"illustrious"});if(developer())input("profile_auto_train",L"이미지가 모이면 자동 학습",{},true);actions({{4,L"프로필 등록",true}});break;
  case 2:out.title=L"학습 이미지";
   input("profile_target",L"프로필",managed);
-  actions({{5,L"이미지 추가",true},{6,L"새로고침",false},{23,L"선택 삭제",false},{28,L"학습 모델 삭제",false},{29,L"프로필 삭제",false}});
+  actions({{5,L"이미지 추가",true},{6,L"새로고침",false},{31,L"프로필 편집",false},{23,L"선택 삭제",false},{28,L"학습 모델 삭제",false},{29,L"프로필 삭제",false}});
   {auto found=referenceProfiles.find(profileId(str(store->settings,"profile_target")));if(found!=referenceProfiles.end()&&str(found->second.value("training_setup",json::object()),"reason")=="pipeline_mismatch")actions({{30,L"서버 모델에 맞추기",true}});}
   input("profile_caption",L"공통 캡션 (선택)");out.inputs.back().control.h=40;y-=24;
   out.referencesY=y+4;out.referencesHeight=std::max(110.f,out.clip.h-y-82-(trainingStatusProfile==profileId(str(store->settings,"profile_target"))&&!trainingStatus.empty()?208.f:0.f));y+=out.referencesHeight+12;
@@ -44,7 +44,10 @@ void positionLearningControls(Rect c,Rect g){auto layout=learningLayout(c,g);for
 void learningAction(int action){switch(action){
  case 1:featureRequest("profiles","GET","/learning/profiles");break;
  case 2:save();learningNote=L"다음 생성에 적용할 설정을 저장했습니다.";break;
- case 3:setLearningView(1);break;
+ case 3:clearProfileEdit();setLearningView(1);break;
+ case 31:featureRequest("profile_edit","GET","/learning/profiles/"+activeProfile());break;
+ case 32:saveProfileEdit();break;
+ case 33:clearProfileEdit();setLearningView(2);break;
  case 4:createLearningProfile();break;
  case 5:uploadLearningReference();break;
  case 23:deleteSelectedReferences();break;
