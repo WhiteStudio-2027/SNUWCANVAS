@@ -9,14 +9,16 @@ LearningLayout learningLayout(Rect c,Rect g){
  LearningLayout out;out.clip={c.x+10,128,c.w-26,std::max(50.f,g.y-168)};float x=out.clip.x,w=out.clip.w,y=page==7?0.f:52.f;
  auto input=[&](const char* key,const wchar_t* title,std::vector<std::wstring> values=std::vector<std::wstring>{},bool check=false){out.inputs.push_back({key,title,{x,y+(check?0:21),check?22.f:w,check?22.f:((std::string(key)=="profile_description"||std::string(key)=="profile_caption"||std::string(key)=="caption_result"||std::string(key)=="caption_negative")?64.f:29.f)},{x+(check?30:0),y,check?w-30:w,check?24.f:19.f},values,check});y+=check?34:((std::string(key)=="profile_description"||std::string(key)=="profile_caption"||std::string(key)=="caption_result"||std::string(key)=="caption_negative")?96:61);};
  auto actions=[&](std::vector<std::tuple<int,std::wstring,bool>> items){y+=8;float cols=w>=420?3.f:w>=260?2.f:1.f,part=(w-8*(cols-1))/cols;for(size_t i=0;i<items.size();i++){auto [id,text,primary]=items[i];out.actions.push_back({id,text,{x+float(i%int(cols))*(part+8),y+float(i/int(cols))*36,part,29},primary});}y+=std::ceil(items.size()/cols)*36;};
- auto managed=profileChoices(false);auto styles=profileChoices(true);managed.insert(managed.end(),styles.begin()+1,styles.end());
+ auto attributes=[&]{actions({{34,entityAttributesOpen?L"세부 특징 접기":L"세부 특징",false}});if(entityAttributesOpen)for(auto& spec:entityFields)input(spec.setting,spec.label);};
+ auto managed=allProfileChoices();
  if(page==7){switch(consistencyView){
  case 0:out.title=L"사용할 캐릭터 선택";out.hint=L"등록한 캐릭터로 다음 이미지를 만듭니다.";
-  input("consistency_enabled",L"일관성 사용",{},true);input("consistency_profile",L"캐릭터 / 대상",profileChoices(false));input("style_profile",L"스타일 (선택 사항)",profileChoices(true));actions({{1,L"새로고침",false},{2,L"저장",true},{3,L"새 캐릭터 등록",false}});break;
- case 1:if(!editingProfile.empty()){out.title=L"프로필 편집";input("profile_name",L"이름");input("profile_description",L"유지할 외형 (영문)");actions({{32,L"저장",true},{33,L"취소",false}});break;}out.title=L"새 캐릭터 등록";out.hint=L"이름과 항상 유지할 외형을 적어주세요.";
-  input("profile_name",L"프로필 이름");input("profile_kind",L"종류",{L"character",L"product",L"brand",L"style"});input("profile_description",L"유지할 외형 (영문)");input("profile_pipeline",L"기반 모델",{L"서버 기본",L"sdxl",L"illustrious"});if(developer())input("profile_auto_train",L"이미지가 모이면 자동 학습",{},true);actions({{4,L"프로필 등록",true}});break;
+  input("consistency_enabled",L"일관성 사용",{},true);input("consistency_profile",L"캐릭터 / 대상",profileChoices(false));input("style_profile",L"스타일 (선택 사항)",profileChoices(true));actions({{1,L"새로고침",false},{2,L"저장",true},{3,L"새 항목 등록",false}});break;
+ case 1:if(!editingProfile.empty()){out.title=L"프로필 편집";input("profile_name",L"이름");input("profile_description",L"설명 (영문)");attributes();actions({{32,L"저장",true},{33,L"취소",false}});break;}out.title=L"새 항목 등록";
+  input("profile_name",L"프로필 이름");input("profile_kind",L"종류",entityKindChoices());input("profile_description",L"설명 (영문)");attributes();if(!textEntityKind(entityKind(str(store->settings,"profile_kind")))){input("profile_pipeline",L"기반 모델",{L"서버 기본",L"sdxl",L"illustrious"});if(developer())input("profile_auto_train",L"이미지가 모이면 자동 학습",{},true);}actions({{4,L"프로필 등록",true}});break;
  case 2:out.title=L"학습 이미지";
   input("profile_target",L"프로필",managed);
+  if(selectedTextEntity()){out.title=L"장소 · 사물";actions({{35,L"프롬프트에 추가",true},{31,L"편집",false},{29,L"삭제",false},{1,L"새로고침",false}});break;}
   actions({{5,L"이미지 추가",true},{6,L"새로고침",false},{31,L"프로필 편집",false},{23,L"선택 삭제",false},{28,L"학습 모델 삭제",false},{29,L"프로필 삭제",false}});
   {auto found=referenceProfiles.find(profileId(str(store->settings,"profile_target")));if(found!=referenceProfiles.end()&&str(found->second.value("training_setup",json::object()),"reason")=="pipeline_mismatch")actions({{30,L"서버 모델에 맞추기",true}});}
   input("profile_caption",L"공통 캡션 (선택)");out.inputs.back().control.h=40;y-=24;
@@ -45,6 +47,8 @@ void learningAction(int action){switch(action){
  case 1:featureRequest("profiles","GET","/learning/profiles");break;
  case 2:save();learningNote=L"다음 생성에 적용할 설정을 저장했습니다.";break;
  case 3:clearProfileEdit();setLearningView(1);break;
+ case 35:insertSelectedEntity();break;
+ case 34:sync();entityAttributesOpen=!entityAttributesOpen;rebuild(false);break;
  case 31:featureRequest("profile_edit","GET","/learning/profiles/"+activeProfile());break;
  case 32:saveProfileEdit();break;
  case 33:clearProfileEdit();setLearningView(2);break;
