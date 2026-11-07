@@ -33,6 +33,7 @@ void featureRequest(const std::string& action,const std::string& method,const st
  std::thread([=]{CoInitializeEx(nullptr,COINIT_MULTITHREADED);try{NetworkScope modeScope(nullptr,std::chrono::steady_clock::now()+std::chrono::seconds(240),str(cfg,"content_mode","standard"));std::string body=method=="GET"?"":payload.dump(),content="application/json";if(!file.empty()){Multipart form;form.file("image",file);for(auto& [k,v]:parts.items())form.field(k,v.is_string()?v.get<std::string>():v.dump());body=form.finish();content=form.type();}auto r=request(method,joinUrl(str(cfg,"api"),path),str(cfg,"api_key"),body,content,nullptr,16*1024*1024,240000);if(r.code==429)throw std::runtime_error("요청 제한에 도달했습니다. 잠시 후 다시 시도하세요.");e->event({"learning_reply",project,action,{{"reply",r.object()},{"file",utf8(file.wstring())}}});}catch(const std::exception& x){e->event({"learning_reply",project,action=="account_logout"?"account_logout":"failed",{{"message",x.what()}}});}CoUninitialize();}).detach();
 }
 void learningReply(const Event& event){
+ if(event.text=="profiles"||event.text=="create"||event.text=="profile_delete")entityRefreshAt=0;
  if(event.text=="training_status"){trainingStatusReply(event);return;}
  if(event.text=="reference_download"){referenceDownloadReply(event);return;}
  if(event.text=="reference_progress"){if(event.project==store->active){status=L"이미지 추가 "+std::to_wstring(event.data.value("done",0))+L" / "+std::to_wstring(event.data.value("total",0));learningNote=status;}return;}
