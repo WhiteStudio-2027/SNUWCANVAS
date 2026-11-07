@@ -22,6 +22,7 @@ inline std::string normalizeServerAddress(std::string value){
 }
 inline constexpr const char* serverHtmlError="서버 대신 웹 페이지가 응답했습니다. 네트워크 차단 여부를 운영자에게 확인하세요.";
 inline constexpr const char* serverJsonError="서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도하거나 운영자에게 문의하세요.";
+inline std::string publicErrorMessage(const json& envelope){auto message=str(envelope,"public_message");if(message.empty()||message.size()>1024)return "";auto reference=str(envelope,"request_id");if(reference.size()==16&&reference.find_first_not_of("0123456789abcdef")==std::string::npos)message+=" (오류 번호: "+reference+")";return message;}
 inline std::string userError(const std::string& message){
  if(message.find("[COMFY_VALIDATION]")!=std::string::npos||message.find("ComfyUI rejected workflow")!=std::string::npos)return "생성 엔진이 모델 또는 워크플로우 설정을 거절했습니다. 서버 설치·복구 후 다시 시도하세요. 상세 원인은 서버 로그의 reason 항목을 확인하세요.";
  if(message.find("[COMFY_CONNECTION]")!=std::string::npos||message.find("ComfyUI connection failed")!=std::string::npos)return "이미지 생성 엔진에 연결하지 못했습니다. 서버 PC의 ComfyUI 실행 상태를 확인하세요.";
@@ -114,7 +115,7 @@ inline Response request(const std::string& method,const std::string& url,const s
  wchar_t media[256];n=sizeof media;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_CONTENT_TYPE,nullptr,media,&n,nullptr))out.media=utf8(media);
  wchar_t retry[32];n=sizeof retry;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_RETRY_AFTER,nullptr,retry,&n,nullptr))out.retry=utf8(retry);
  size_t receivedBytes=0;for(;;){DWORD readSize=sizeof req.buffer;if(onChunk&&out.code<300){auto available=req.operation([&]{return WinHttpQueryDataAvailable(req,nullptr);},stop,deadline);if(!available)break;readSize=std::min<DWORD>(available,sizeof req.buffer);}auto got=req.operation([&]{return WinHttpReadData(req,req.buffer,readSize,nullptr);},stop,deadline);if(!got)break;if(got>limit-receivedBytes)throw std::runtime_error("서버 응답 크기 제한 초과");receivedBytes+=got;if(onChunk&&out.code<300)onChunk(std::string(req.buffer,got));else out.data.append(req.buffer,got);}
- if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==403&&reason=="Server access required"){std::lock_guard lock(serverAccessMutex);serverAccessToken.clear();serverAccessExpires=0;}if(out.code==428&&reason=="Privacy consent registration required"&&!key.empty()&&!deviceRegistrationActive&&!consentRetryActive){{std::lock_guard lock(deviceRegistrationMutex);deviceRegistrationReady().clear();}struct RetryReset{~RetryReset(){consentRetryActive=false;}}reset;consentRetryActive=true;beforeDeviceRequest(url,key);return request(method,url,key,body,content,stop,limit,timeoutMs,onChunk);}if(out.code==429)return out;throw std::runtime_error("HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason));}return out;
+ if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==403&&reason=="Server access required"){std::lock_guard lock(serverAccessMutex);serverAccessToken.clear();serverAccessExpires=0;}if(out.code==428&&reason=="Privacy consent registration required"&&!key.empty()&&!deviceRegistrationActive&&!consentRetryActive){{std::lock_guard lock(deviceRegistrationMutex);deviceRegistrationReady().clear();}struct RetryReset{~RetryReset(){consentRetryActive=false;}}reset;consentRetryActive=true;beforeDeviceRequest(url,key);return request(method,url,key,body,content,stop,limit,timeoutMs,onChunk);}if(out.code==429)return out;std::string publicReason;try{auto envelope=out.object();publicReason=publicErrorMessage(envelope);}catch(...){}throw std::runtime_error(publicReason.empty()?"HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason):publicReason);}return out;
 }
 
 
@@ -182,7 +183,7 @@ public:
     auto j=json::parse(line);auto status=str(j,"state");event({"progress",t.project,status,j});auto results=j.value("results",json::array());
     if(!t.editing)for(size_t i=received;i<results.size();++i){download(t,results[i],str(t.cfg,"version","v9")+"_");received++;}
     if(status=="completed"){if(t.editing&&!results.empty()){download(t,results.back(),"edit_");event({"history_ready",t.project,session,request("GET",joinUrl(base,"/sessions/"+session+"/history"),key).object()});event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});}terminal=true;}
-    else if(status=="failed"||status=="cancelled"){if(t.editing)event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});throw std::runtime_error(status=="cancelled"?"서버에서 작업이 취소되었습니다.":userError(str(j,"error","서버에서 이미지 생성을 완료하지 못했습니다.")));}
+    else if(status=="failed"||status=="cancelled"){if(t.editing)event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});throw std::runtime_error(status=="cancelled"?"서버에서 작업이 취소되었습니다.":(publicErrorMessage(j).empty()?userError(str(j,"error","서버에서 이미지 생성을 완료하지 못했습니다.")):publicErrorMessage(j)));}
     else if(status!="queued"&&status!="running")throw std::runtime_error("알 수 없는 서버 작업 상태: "+status);
    }
   };
