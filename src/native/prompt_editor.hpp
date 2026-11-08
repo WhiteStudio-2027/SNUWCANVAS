@@ -2,7 +2,7 @@
 PromptHistory promptHistory;
 std::string promptDisplayed;
 bool promptComposing=false,promptRebuildPending=false;
-void bindPromptHistory(){promptHistory.bind(store->workspaceScope+"|"+store->active);}
+void bindPromptHistory(){promptHistory.bind(store->workspaceScope+"|"+store->active+"|"+store->activePanelId());}
 void syncPromptEditor(){
  if(binding||promptComposing||page!=0||!positive)return;
  auto text=normalizedText(positive);if(text==promptDisplayed)return;
