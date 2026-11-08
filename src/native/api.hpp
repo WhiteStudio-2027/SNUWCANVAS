@@ -183,7 +183,7 @@ public:
   size_t received=0;bool terminal=false;std::string pendingLine;
   auto consume=[&](const std::string& bytes){pendingLine+=bytes;if(pendingLine.size()>16*1024*1024)throw std::runtime_error("상태 응답 크기 제한 초과");size_t end;
    while((end=pendingLine.find('\n'))!=std::string::npos){auto line=pendingLine.substr(0,end);pendingLine.erase(0,end+1);if(line.empty()||line=="\r")continue;
-    auto j=json::parse(line);auto status=str(j,"state");event({"progress",t.project,status,j});auto results=j.value("results",json::array());
+    auto j=json::parse(line);auto status=str(j,"state");if(!str(t.cfg,"_audition_run").empty())j["_audition_run"]=t.cfg["_audition_run"];event({"progress",t.project,status,j});auto results=j.value("results",json::array());
     if(!t.editing)for(size_t i=received;i<results.size();++i){download(t,results[i],str(t.cfg,"version","v9")+"_");received++;}
     if(status=="completed"){if(t.editing&&!results.empty()){download(t,results.back(),"edit_");event({"history_ready",t.project,session,request("GET",joinUrl(base,"/sessions/"+session+"/history"),key).object()});event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});}terminal=true;}
     else if(status=="failed"||status=="cancelled"){if(t.editing)event({"settings",t.project,"",{{"editing_job",""},{"editing_request",""}}});throw std::runtime_error(status=="cancelled"?"서버에서 작업이 취소되었습니다.":(publicErrorMessage(j).empty()?userError(str(j,"error","서버에서 이미지 생성을 완료하지 못했습니다.")):publicErrorMessage(j)));}
