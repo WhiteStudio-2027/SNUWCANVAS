@@ -46,6 +46,7 @@ inline std::string userError(const std::string& message){
  if(message.find("Generation quota exceeded")!=std::string::npos)return "이미지 생성 한도를 모두 사용했습니다. 관리자에게 한도 변경을 요청하세요.";
  if(message.rfind("[json.exception",0)==0||message.rfind("{",0)==0)return serverJsonError;
  if(message=="stoi"||message=="stod"||message=="stoll")return "숫자 설정값을 확인하세요.";
+ if(message.rfind("filesystem error:",0)==0)return "파일 작업을 완료하지 못했습니다. 저장 공간과 폴더 권한을 확인하세요.";
  if(message.size()>400)return "요청 처리 중 오류가 발생했습니다. 설정을 확인한 뒤 다시 시도하세요.";
  return message;
 }
@@ -101,7 +102,7 @@ struct AsyncTransfer {
 inline thread_local bool deviceRegistrationActive=false,consentRetryActive=false;
 inline auto& deviceRegistrationReady(){static std::map<std::string,std::chrono::steady_clock::time_point> ready;return ready;}
 inline Response request(const std::string& method,const std::string& url,const std::string& key="",const std::string& body="",const std::string& content="application/json",const std::atomic_bool* stop=nullptr,size_t limit=256*1024*1024,int timeoutMs=240000,std::function<void(const std::string&)> onChunk={}){
- std::string bearer;if(key==accountCredential){if(!accountSession)throw std::runtime_error("먼저 로그인하세요.");bearer=accountSession->authorization(url,sameOrigin,[](const std::string& server,const std::string& token){auto result=request("POST",joinUrl(server,"/api/auth/refresh"),"",json{{"refresh_token",token}}.dump(),"application/json",nullptr,65536,15000);if(result.code!=200)throw std::runtime_error("로그인 갱신 대기 중입니다. 잠시 후 다시 시도하세요.");return result.object();});}
+ std::string bearer;if(key==accountCredential){if(!accountSession)throw std::runtime_error("먼저 로그인하세요.");bearer=accountSession->authorization(url,sameOrigin,[](const std::string& server,const std::string& token){auto result=request("POST",joinUrl(server,"/api/auth/refresh"),"",json{{"refresh_token",token}}.dump(),"application/json",nullptr,65536,15000);if(result.code!=200)throw std::runtime_error("로그인 갱신 대기 중입니다. 잠시 후 다시 시도하세요.");return result.object();},networkAccountOwner?*networkAccountOwner:std::string());}
  beforeDeviceRequest(url,key);
  if(!stop)stop=networkStop;auto deadline=std::min(networkDeadline,std::chrono::steady_clock::now()+std::chrono::milliseconds(timeoutMs));
  Url u(url);if(std::string(networkMode)!="standard"&&std::string(networkMode)!="hardcore")throw std::runtime_error("콘텐츠 모드 오류");if(key.find_first_of("\r\n")!=std::string::npos)throw std::runtime_error("비밀키에 줄바꿈이 있습니다.");
