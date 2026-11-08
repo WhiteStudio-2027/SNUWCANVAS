@@ -1,0 +1,3 @@
+// App members. User-provided brand image is embedded unchanged.
+Com<ID2D1Bitmap> studioBrand;
+void paintStudioBrand(Rect r,bool details=false){if(!studioBrand)studioBrand=renderer.resource(204);float size=details?40.f:24.f,x=details?r.x:r.x+std::max(0.f,(r.w-250)/2);renderer.bitmap(studioBrand.Get(),{x,r.y,size,size});float textX=x+size+10,available=std::max(1.f,r.x+r.w-textX);if(details){label(L"White Studio",{textX,r.y,available,25},true,0xeeeeee,18);label(L"SNUW Canvas "+wide(CLIENT_DISPLAY_VERSION)+L" · © White Studio",{textX,r.y+29,available,25},false,0xccccd0,11);}else label(L"© White Studio · SNUW Canvas",{textX,r.y,available,24},false,0xccccd0,11);}

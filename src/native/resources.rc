@@ -5,6 +5,7 @@
 201 RCDATA "assets/splash.png"
 202 RCDATA "assets/welcome-background.png"
 203 RCDATA "assets/welcome-logo.png"
+204 RCDATA "assets/white-studio.png"
 211 RCDATA "assets/fonts/NotoSansKR-Regular.ttf"
 212 RCDATA "assets/fonts/NotoSansKR-Bold.ttf"
 213 RCDATA "assets/fonts/GoogleSansCode-Regular.ttf"
@@ -22,6 +23,8 @@ BEGIN
   BEGIN
    VALUE "FileDescription", "SNUWCANVAS"
    VALUE "ProductName", "snuwcanvas"
+   VALUE "CompanyName", "White Studio"
+   VALUE "LegalCopyright", "Copyright (C) White Studio"
    VALUE "FileVersion", SNUW_VERSION_STRING
    VALUE "ProductVersion", SNUW_DISPLAY_VERSION
    VALUE "OriginalFilename", "SNUWCANVAS.exe"

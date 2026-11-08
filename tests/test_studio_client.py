@@ -1,6 +1,7 @@
 """Check the real native workspace controls and in-app logout without visible windows."""
 from pathlib import Path
 import json
+import hashlib
 import subprocess
 import tempfile
 import unittest
@@ -21,4 +22,5 @@ class StudioTests(unittest.TestCase):
             self.assertTrue(result['logout_keeps_workspace'])
             self.assertTrue(result['large_preview'])
             self.assertTrue(result['account_page'])
+            self.assertEqual(result['brand_logo_sha256'],hashlib.sha256((ROOT/'assets/white-studio.png').read_bytes()).hexdigest())
             self.assertFalse(result['gui_opened'])
