@@ -1,10 +1,12 @@
 HWND profileNickname=nullptr,profileBio=nullptr;
 #include "account_autosave.hpp"
+#include "account_media.hpp"
+float accountMediaOffset(){return accountMediaSupported()?180.f:0.f;}
 Rect accountViewport(Rect c){return {c.x+8,80,c.w-16,std::max(40.f,height-96)};}
-float accountScrollMax(){return std::max(0.f,656-height);}
+float accountScrollMax(){return std::max(0.f,656+accountMediaOffset()-height);}
 void positionAccountControls(Rect c){
  accountScroll=std::clamp(accountScroll,0.f,accountScrollMax());float line=22;if(hwnd){auto dc=GetDC(hwnd);auto old=SelectObject(dc,uiFont);TEXTMETRICW metrics{};GetTextMetricsW(dc,&metrics);SelectObject(dc,old);ReleaseDC(hwnd,dc);line=metrics.tmHeight/dpi;}
- Rect nickname{c.x+18,206+(40-line)/2-accountScroll,c.w-36,line},bio{c.x+18,282-accountScroll,c.w-36,110};place(profileNickname,nickname);place(profileBio,bio);auto area=accountViewport(c);for(auto [window,rect]:std::vector<std::pair<HWND,Rect>>{{profileNickname,nickname},{profileBio,bio}})if(window)ShowWindow(window,rect.y>=area.y&&rect.y+rect.h<=area.y+area.h?SW_SHOW:SW_HIDE);
+ Rect nickname{c.x+18,206+accountMediaOffset()+(40-line)/2-accountScroll,c.w-36,line},bio{c.x+18,282+accountMediaOffset()-accountScroll,c.w-36,110};place(profileNickname,nickname);place(profileBio,bio);auto area=accountViewport(c);for(auto [window,rect]:std::vector<std::pair<HWND,Rect>>{{profileNickname,nickname},{profileBio,bio}})if(window)ShowWindow(window,rect.y>=area.y&&rect.y+rect.h<=area.y+area.h?SW_SHOW:SW_HIDE);
 }
 void accountControls(Rect c){
  bindAccountDraft();profileNickname=control(L"EDIT",wide(str(accountDraft,"nickname")),ES_AUTOHSCROLL,1201);SendMessageW(profileNickname,EM_SETLIMITTEXT,32,0);SetWindowSubclass(profileNickname,accountProfileEditProc,51,(DWORD_PTR)this);
@@ -12,7 +14,8 @@ void accountControls(Rect c){
  positionAccountControls(c);
 }
 void accountPage(Rect c){
- auto area=accountViewport(c);renderer.target->PushAxisAlignedClip(area.d2d(),D2D1_ANTIALIAS_MODE_ALIASED);auto y=[&](float value){return value-accountScroll;};auto action=[&](float top,float x,float width,const std::wstring& title,std::function<void()> command,bool enabled=true){Rect rect{x,y(top),width,32};if(rect.y>=area.y&&rect.y+rect.h<=area.y+area.h)button(rect,title,command,false,enabled);};
+ auto area=accountViewport(c);renderer.target->PushAxisAlignedClip(area.d2d(),D2D1_ANTIALIAS_MODE_ALIASED);auto y=[&](float value){return value+accountMediaOffset()-accountScroll;};auto action=[&](float top,float x,float width,const std::wstring& title,std::function<void()> command,bool enabled=true){Rect rect{x,y(top),width,32};if(rect.y>=area.y&&rect.y+rect.h<=area.y+area.h)button(rect,title,command,false,enabled);};
+ if(accountMediaSupported()){float top=90-accountScroll;Rect banner{c.x+18,top,c.w-36,100};renderer.box(banner,0x242428,0x3a3a40,6);renderer.bitmap(accountMediaBitmaps[1].Get(),banner);Rect avatar{c.x+18,top+105,48,48};renderer.box(avatar,0x34343b,0,8);renderer.bitmap(accountMediaBitmaps[0].Get(),avatar);bool ready=!accountMediaBusy&&!accountMediaActive&&!accountSaving&&!accountSaveWorkerActive;float mediaWidth=std::max(40.f,(c.w-104)/3);action(25,c.x+76,mediaWidth,L"프로필",[this]{accountMediaMenu("avatar");},ready);action(25,c.x+82+mediaWidth,mediaWidth,L"배너",[this]{accountMediaMenu("banner");},ready);action(25,c.x+88+2*mediaWidth,mediaWidth,accountMediaRetry.empty()?L"새로고침":L"재시도",[this]{startAccountMedia(accountMediaRetry);},ready);label(accountMediaMessage,{c.x+18,top+154,c.w-36,22},false,0xccccd0,11);}
  renderer.box({c.x+16,y(90),54,54},0x34343b,0,14);icon({c.x+30,y(102),26,26},5,0xb5c2ff);
  label(wide(str(accountProfile,"nickname","내 프로필")),{c.x+86,y(90),c.w-106,28},true,0xe5e5e7,18);
  label(wide(str(accountProfile,"email")),{c.x+86,y(123),c.w-106,23},false,0xccccd0,11);
