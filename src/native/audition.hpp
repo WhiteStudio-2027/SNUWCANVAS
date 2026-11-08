@@ -1,0 +1,30 @@
+#pragma once
+#include "storyboard.hpp"
+namespace snuw {
+// Local-only immutable run snapshots. No credentials, remote project sync or retries.
+class Auditions {
+ fs::path file;std::string owner,channel;
+public:
+ json data;
+ Auditions(const fs::path& root,const std::string& scope,const std::string& project):file(root/"config/auditions"/(project+".json")),owner(scope),channel(project){
+  if(!boardId(project)||scope.size()!=64||scope.find_first_not_of("0123456789abcdef")!=std::string::npos)throw std::runtime_error("계정에 로그인한 뒤 오디션을 시작하세요.");
+  if(fs::exists(file)){if(fs::file_size(file)>32*1024*1024)throw std::runtime_error("오디션 보관 용량을 확인하세요.");data=readJson(file);validate();}else data={{"version",1},{"owner",owner},{"channel",channel},{"runs",json::array()}};
+ }
+ void validate(){if(!data.is_object()||data.value("version",0)!=1||str(data,"owner")!=owner||str(data,"channel")!=channel||!data.contains("runs")||!data["runs"].is_array()||data["runs"].size()>20)throw std::runtime_error("오디션 계정·프로젝트 정보를 확인하세요.");std::set<std::string> ids;
+  for(auto& run:data["runs"]){if(!boardId(str(run,"id"))||!ids.insert(str(run,"id")).second||!run.contains("scenes")||!run["scenes"].is_array()||run["scenes"].empty()||run["scenes"].size()>15||!run.contains("tasks")||!run["tasks"].is_array()||run["tasks"].empty()||run["tasks"].size()>300)throw std::runtime_error("오디션 목록 형식 오류");for(auto& scene:run["scenes"]){validatePanelSnapshot(scene.at("snapshot"));if(!boardId(str(scene,"id")))throw std::runtime_error("오디션 장면 형식 오류");}std::set<std::string> requests;for(auto& task:run["tasks"]){auto status=str(task,"state");if(!boardId(str(task,"request"))||!requests.insert(str(task,"request")).second||task.value("scene",-1)<0||task.value("scene",-1)>=int(run["scenes"].size())||task.value("stars",0)<0||task.value("stars",0)>5||(status!="pending"&&status!="running"&&status!="completed"&&status!="failed"&&status!="uncertain")||(!str(task,"job").empty()&&!boardId(str(task,"job"))))throw std::runtime_error("오디션 후보 형식 오류");}}
+ }
+ void save(){validate();auto raw=data.dump(2);if(raw.size()>32*1024*1024)throw std::runtime_error("오디션 보관 용량을 확인하세요.");atomicWrite(file,raw);}
+ json& run(const std::string& key){for(auto& row:data["runs"])if(str(row,"id")==key)return row;throw std::runtime_error("오디션을 찾을 수 없습니다.");}
+ json& task(const std::string& key,int index){auto& row=run(key);if(index<0||index>=int(row["tasks"].size()))throw std::runtime_error("오디션 후보를 찾을 수 없습니다.");return row["tasks"][index];}
+ std::string create(const json& scenes,int each,const std::string& server,const std::string& mode){if(each<1||each>20||!scenes.is_array()||scenes.empty()||scenes.size()>15||scenes.size()*each>300)throw std::runtime_error("장면 1~15개, 장면당 1~20장까지 가능합니다.");if(data["runs"].size()>=20)throw std::runtime_error("오디션은 프로젝트당 20개까지 보관합니다.");for(auto& row:data["runs"])if(str(row,"state")=="running")throw std::runtime_error("기존 오디션을 먼저 일시정지하세요.");auto key=id();json tasks=json::array();for(int scene=0;scene<int(scenes.size());scene++)for(int candidate=0;candidate<each;candidate++)tasks.push_back({{"request",id()},{"scene",scene},{"candidate",candidate},{"state","pending"},{"job",""},{"stars",0},{"path",""},{"seed",static_cast<int64_t>(std::stoull(id().substr(0,12),nullptr,16))}});json row={{"id",key},{"created",timestamp()},{"state","paused"},{"server",sha256(server)},{"mode",mode},{"scenes",scenes},{"tasks",tasks},{"snapshot_hash",sha256(scenes.dump())},{"selected",json(nullptr)}};auto previous=data;data["runs"].push_back(row);try{save();}catch(...){data=previous;throw;}return key;}
+ // An interrupted POST without a returned job ID is never replayed automatically.
+ void recover(){for(auto& row:data["runs"]){if(str(row,"state")=="running")row["state"]="paused";for(auto& item:row["tasks"])if(str(item,"state")=="running"&&str(item,"job").empty())item["state"]="uncertain";}save();}
+ int next(const std::string& key){auto& row=run(key);if(sha256(row["scenes"].dump())!=str(row,"snapshot_hash"))throw std::runtime_error("오디션 기준 설정이 변경되었습니다.");for(int i=0;i<int(row["tasks"].size());i++)if(str(row["tasks"][i],"state")=="running"||(str(row["tasks"][i],"state")=="failed"&&!str(row["tasks"][i],"job").empty()))return i;for(int i=0;i<int(row["tasks"].size());i++)if(str(row["tasks"][i],"state")=="pending")return i;return -1;}
+ void start(const std::string& key,int index){auto& item=task(key,index);if(str(item,"state")!="pending"&&!((str(item,"state")=="running"||str(item,"state")=="failed")&&!str(item,"job").empty()))throw std::runtime_error("확인되지 않은 후보는 자동 재생성할 수 없습니다.");item["state"]="running";save();}
+ void accepted(const std::string& key,int index,const std::string& job){if(!boardId(job))throw std::runtime_error("서버 작업 식별값을 확인하세요.");auto& item=task(key,index);if(str(item,"state")=="running"){item["job"]=job;save();}}
+ void image(const std::string& key,int index,const std::string& path){auto& item=task(key,index);item["path"]=path;item["state"]="completed";save();}
+ void terminal(const std::string& key,int index,bool success,const std::string& error){auto& item=task(key,index);if(str(item,"state")!="completed"){item["state"]=success?"uncertain":(str(item,"job").empty()?"uncertain":"failed");item["error"]=error.substr(0,1024);}save();}
+ void rate(const std::string& key,int index,int stars){if(stars<1||stars>5||str(task(key,index),"state")!="completed")throw std::runtime_error("완료된 후보에 1~5점을 주세요.");task(key,index)["stars"]=stars;save();}
+ void choose(const std::string& key,int index){if(str(task(key,index),"state")!="completed"||task(key,index).value("stars",0)<1)throw std::runtime_error("완료된 후보를 평가한 뒤 선정하세요.");run(key)["selected"]=index;save();}
+};
+}
