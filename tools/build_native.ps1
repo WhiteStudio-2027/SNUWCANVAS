@@ -40,7 +40,17 @@ $candidate = Join-Path $clientRoot '.build/SNUWCANVAS.next.exe'
 $targetName = if ($CustomServer) {'SNUWCANVAS-custom-server.exe'} else {'SNUWCANVAS.exe'}
 $target = Join-Path $repoRoot $targetName
 if (Test-Path -LiteralPath $target) {
-    [System.IO.File]::Replace($candidate, $target, [System.Management.Automation.Language.NullString]::Value)
+    # Antivirus/indexer scans can hold a newly tested EXE briefly. Keep the old
+    # binary intact and retry atomically; never terminate a running user app.
+    for ($replaceAttempt = 0; ; $replaceAttempt++) {
+        try {
+            [System.IO.File]::Replace($candidate, $target, [System.Management.Automation.Language.NullString]::Value)
+            break
+        } catch [System.IO.IOException] {
+            if ($replaceAttempt -ge 19) { throw }
+            Start-Sleep -Milliseconds 250
+        }
+    }
 } else {
     [System.IO.File]::Move($candidate, $target)
 }
