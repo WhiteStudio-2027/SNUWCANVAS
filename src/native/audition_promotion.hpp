@@ -1,18 +1,20 @@
 // App members. Promotion is explicit; neither project sync nor training starts here.
-json auditionPromotionCandidate(){
+json auditionPromotionCandidate(bool sheetOnly=false){
  save();if(auditionRunning||auditionInFlight||engine->locked(store->active)||learningBusy)throw std::runtime_error("현재 작업을 마치거나 일시정지한 뒤 진행하세요.");
  auto& ledger=auditions();if(auditionRun.empty()||auditionSelected<0)throw std::runtime_error("평가한 후보를 선정본으로 저장하세요.");
  auto& run=ledger.run(auditionRun);auto& item=ledger.task(auditionRun,auditionSelected);
- if(!run.contains("selected")||!run["selected"].is_number_integer()||run["selected"].get<int>()!=auditionSelected||str(item,"state")!="completed"||item.value("stars",0)<1)throw std::runtime_error("평가한 후보를 선정본으로 저장하세요.");
+ if(run.contains("reference_sheet")&&!referenceSheetApproved(run,auditionSelected))throw std::runtime_error("시트의 각도별 외형을 먼저 확인하세요.");
+ if(sheetOnly&&!run.contains("reference_sheet"))throw std::runtime_error("참조 시트 후보를 선택하세요.");
+ if(!sheetOnly&&(!run.contains("selected")||!run["selected"].is_number_integer()||run["selected"].get<int>()!=auditionSelected||str(item,"state")!="completed"||item.value("stars",0)<1))throw std::runtime_error("평가한 후보를 선정본으로 저장하세요.");
  if(str(run,"server")!=sha256(str(store->settings,"api"))||str(run,"mode")!=str(store->settings,"content_mode","standard"))throw std::runtime_error("후보를 만든 서버와 모드로 돌아가세요.");
  if(sha256(run["scenes"].dump())!=str(run,"snapshot_hash"))throw std::runtime_error("오디션 기준 설정이 변경되었습니다.");
  auto hash=str(item,"sha256");if(hash.size()!=64||hash.find_first_not_of("0123456789abcdef")!=std::string::npos)throw std::runtime_error("이전 후보에는 파일 지문이 없습니다. 새 오디션 후보를 생성해 주세요.");
  auto path=fs::path(wide(str(item,"path")));std::error_code ec;auto size=fs::file_size(path,ec);
  if(ec||!size||size>25*1024*1024||!imagePath(path)||!localImageVisible(store->settings,path)||(!hardcore()&&imageIsHardcore(store->settings,path)))throw std::runtime_error("현재 계정과 모드의 후보 이미지 파일을 확인하세요.");
- return {{"path",str(item,"path")},{"sha256",hash},{"run",auditionRun},{"candidate",auditionSelected},{"scene",item.value("scene",0)},{"seed",item.at("seed")},{"mode",str(run,"mode")},{"snapshot_hash",str(run,"snapshot_hash")}};
+ json source={{"path",str(item,"path")},{"sha256",hash},{"run",auditionRun},{"candidate",auditionSelected},{"scene",item.value("scene",0)},{"seed",item.at("seed")},{"mode",str(run,"mode")},{"snapshot_hash",str(run,"snapshot_hash")}};if(run.contains("reference_sheet")){source["sheet_angle"]=str(run["scenes"][auditionSelected],"angle");source["inferred_details"]=run["scenes"][auditionSelected].value("hypothesis",false);source["profile_content_version"]=str(run["reference_sheet"],"content_version");source["front_source_sha256"]=str(run["reference_sheet"],"source_sha256");source["appearance_reviewed"]=true;}return source;
 }
-void promoteAuditionReference(const std::string& role){
- if(role!="character"&&role!="style")throw std::runtime_error("참조 용도를 확인하세요.");auto source=auditionPromotionCandidate();
+void promoteAuditionReference(const std::string& role,bool sheetOnly=false){
+ if(role!="character"&&role!="style")throw std::runtime_error("참조 용도를 확인하세요.");auto source=auditionPromotionCandidate(sheetOnly);
  if(modelId(store->settings)=="pixel_art")throw std::runtime_error("픽셀아트는 참조 이미지와 함께 사용할 수 없습니다.");
  auto& refs=store->state["project"]["references"];if(!refs.is_array())refs=json::array();
  if(refs.size()>=10)throw std::runtime_error("참조 이미지는 최대 10장입니다.");int other=0;for(auto& row:refs){if(str(row,"path")==str(source,"path")||str(row,"audition_sha256")==str(source,"sha256"))throw std::runtime_error("이미 참조에 추가한 후보입니다.");other+=str(row,"role")!="pose";}
@@ -20,8 +22,8 @@ void promoteAuditionReference(const std::string& role){
  auto previous=store->state;refs.push_back({{"path",source["path"]},{"role",role},{"weight",0.6},{"end",0.8},{"audition_sha256",source["sha256"]},{"audition_source",source}});
  try{store->save();}catch(...){store->state=previous;throw;}refIndex=int(refs.size())-1;page=1;formScroll=0;rebuild(false);status=L"선정본을 참조에 추가했습니다.";
 }
-void promoteAuditionTraining(const std::string& profile){
- if(!developer())throw std::runtime_error("학습 이미지 추가는 개발자 권한이 필요합니다.");auto source=auditionPromotionCandidate();const json* target=nullptr;for(auto& row:learningProfiles)if(str(row,"id")==profile)target=&row;
+void promoteAuditionTraining(const std::string& profile,bool sheetOnly=false){
+ if(!developer())throw std::runtime_error("학습 이미지 추가는 개발자 권한이 필요합니다.");auto source=auditionPromotionCandidate(sheetOnly);const json* target=nullptr;for(auto& row:learningProfiles)if(str(row,"id")==profile)target=&row;
  if(!target||!boardId(profile)||textEntityKind(str(*target,"kind")))throw std::runtime_error("현재 서버의 캐릭터 또는 화풍 프로필을 선택하세요.");
  store->settings["profile_target"]=profile+" | "+str(*target,"name");store->save();page=7;consistencyView=2;formScroll=0;rebuild(false);
  // The normal upload worker checks the exact bytes before sending. Auto-train is deliberately disabled.
