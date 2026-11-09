@@ -99,6 +99,7 @@ struct AsyncTransfer {
  ~AsyncTransfer(){if(handle){WinHttpCloseHandle(handle);if(armed){std::unique_lock lock(mutex);cv.wait(lock,[&]{return closed;});}}}
  operator HINTERNET()const{return handle;}
 };
+struct HttpResponseError:std::runtime_error {DWORD status;bool consentChanged;HttpResponseError(DWORD code,bool changed,const std::string& message):std::runtime_error(message),status(code),consentChanged(changed){}};
 inline thread_local bool deviceRegistrationActive=false,consentRetryActive=false;
 inline auto& deviceRegistrationReady(){static std::map<std::string,std::chrono::steady_clock::time_point> ready;return ready;}
 inline Response request(const std::string& method,const std::string& url,const std::string& key="",const std::string& body="",const std::string& content="application/json",const std::atomic_bool* stop=nullptr,size_t limit=256*1024*1024,int timeoutMs=240000,std::function<void(const std::string&)> onChunk={}){
@@ -117,7 +118,7 @@ inline Response request(const std::string& method,const std::string& url,const s
  wchar_t media[256];n=sizeof media;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_CONTENT_TYPE,nullptr,media,&n,nullptr))out.media=utf8(media);
  wchar_t retry[32];n=sizeof retry;if(WinHttpQueryHeaders(req,WINHTTP_QUERY_RETRY_AFTER,nullptr,retry,&n,nullptr))out.retry=utf8(retry);
  size_t receivedBytes=0;for(;;){DWORD readSize=sizeof req.buffer;if(onChunk&&out.code<300){auto available=req.operation([&]{return WinHttpQueryDataAvailable(req,nullptr);},stop,deadline);if(!available)break;readSize=std::min<DWORD>(available,sizeof req.buffer);}auto got=req.operation([&]{return WinHttpReadData(req,req.buffer,readSize,nullptr);},stop,deadline);if(!got)break;if(got>limit-receivedBytes)throw std::runtime_error("서버 응답 크기 제한 초과");receivedBytes+=got;if(onChunk&&out.code<300)onChunk(std::string(req.buffer,got));else out.data.append(req.buffer,got);}
- if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==403&&reason=="Server access required"){std::lock_guard lock(serverAccessMutex);serverAccessToken.clear();serverAccessExpires=0;}if(out.code==428&&reason=="Privacy consent registration required"&&!key.empty()&&!deviceRegistrationActive&&!consentRetryActive){{std::lock_guard lock(deviceRegistrationMutex);deviceRegistrationReady().clear();}struct RetryReset{~RetryReset(){consentRetryActive=false;}}reset;consentRetryActive=true;beforeDeviceRequest(url,key);return request(method,url,key,body,content,stop,limit,timeoutMs,onChunk);}if(out.code==429)return out;std::string publicReason;try{auto envelope=out.object();publicReason=publicErrorMessage(envelope);}catch(...){}throw std::runtime_error(publicReason.empty()?"HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason):publicReason);}return out;
+ if(out.code>=300){std::string reason;try{auto j=out.object();reason=str(j,"error",str(j,"detail"));}catch(...){}if(out.code==403&&reason=="Server access required"){std::lock_guard lock(serverAccessMutex);serverAccessToken.clear();serverAccessExpires=0;}if(out.code==428&&reason=="Privacy consent registration required"&&!key.empty()&&!deviceRegistrationActive&&!consentRetryActive){{std::lock_guard lock(deviceRegistrationMutex);deviceRegistrationReady().clear();}struct RetryReset{~RetryReset(){consentRetryActive=false;}}reset;consentRetryActive=true;beforeDeviceRequest(url,key);return request(method,url,key,body,content,stop,limit,timeoutMs,onChunk);}if(out.code==429)return out;std::string publicReason;try{auto envelope=out.object();publicReason=publicErrorMessage(envelope);}catch(...){}throw HttpResponseError(out.code,out.code==409&&reason=="Consent changed; review current document",publicReason.empty()?"HTTP "+std::to_string(out.code)+(reason.empty()?"":" · "+reason):publicReason);}return out;
 }
 
 
@@ -133,11 +134,15 @@ inline void beforeDeviceRequest(const std::string& url,const std::string& key){
  struct Reset{bool& value;~Reset(){value=false;}}reset{active};active=true;
  auto version=request("GET",joinUrl(base,"/api/version"),key,"","application/json",nullptr,64*1024,15000).object();
  if(!version.contains("min_client_version"))throw std::runtime_error("서버 버전 응답 오류");
- auto policy=request("GET",joinUrl(base,"/api/legal"),key,"","application/json",nullptr,128*1024,15000).object();auto rev=str(policy,"version"),digest=str(policy,"digest"),text=str(policy,"text");if(rev.empty()||digest.size()!=64||text.empty())throw std::runtime_error("동의서 응답 오류");
- // A new server policy is never silently accepted, even if an old local draft was accepted.
- reviewConsent(base,rev,digest,text);bool hardware=deviceIdentity->hardware(base);
- json body={{"client_id",deviceIdentity->uuid},{"client_version",CLIENT_VERSION},{"consent_version",rev},{"consent_digest",digest},{"required_agreed",true},{"hardware_agreed",hardware}};if(hardware)body["hardware"]=deviceHardware();
- request("POST",joinUrl(base,"/api/devices/register"),key,body.dump(),"application/json",nullptr,64*1024,15000);while(ready.size()>=64)ready.erase(ready.begin());ready[cache]=std::chrono::steady_clock::now()+std::chrono::seconds(60);
+ for(int attempt=0;attempt<2;attempt++){
+  auto policy=request("GET",joinUrl(base,"/api/legal"),key,"","application/json",nullptr,128*1024,15000).object();auto rev=str(policy,"version"),digest=str(policy,"digest"),text=str(policy,"text");if(rev.empty()||digest.size()!=64||text.empty())throw std::runtime_error("동의서 응답 오류");
+  reviewConsent(base,rev,digest,text);bool hardware=deviceIdentity->hardware(base);
+  json body={{"client_id",deviceIdentity->uuid},{"client_version",CLIENT_VERSION},{"consent_version",rev},{"consent_digest",digest},{"required_agreed",true},{"hardware_agreed",hardware}};if(hardware)body["hardware"]=deviceHardware();
+  try{request("POST",joinUrl(base,"/api/devices/register"),key,body.dump(),"application/json",nullptr,64*1024,15000);}
+  catch(const HttpResponseError& error){if(error.consentChanged){if(attempt==0)continue;throw std::runtime_error("이용동의 문서가 다시 변경되었습니다. 잠시 후 새 문서를 확인하세요.");}throw;}
+  while(ready.size()>=64)ready.erase(ready.begin());ready[cache]=std::chrono::steady_clock::now()+std::chrono::seconds(60);return;
+ }
+
 }
 
 inline int consentNetworkTest(const fs::path& folder,const std::string& base){try{
