@@ -54,9 +54,9 @@ class ReferenceSheetTests(unittest.TestCase):
       data=json.loads(file.read_text(encoding='utf-8'));runs.extend([{key:task.get(key) for key in ('state','error','job','candidate')} for run in data.get('runs',[]) for task in run.get('tasks',[])])
     self.assertEqual(result.returncode,0,{'report':report,'calls':calls,'runs':runs});self.assertEqual(report['layouts'],4)
     shutil.copyfile(folder/'reference-sheet-ui.png',ROOT.parent/'docs/v3/reference-sheet-ui.png')
-    for key in ('ok','ordinary_inputs_preserved','late_input_ignored','role_scope','inferred_provenance','four_job_sequence','no_auto_approval'):self.assertTrue(report[key],key)
-    self.assertTrue(payloads);self.assertTrue(all(value['verify'] and value['profile_ids']==[profile] for value in payloads));self.assertEqual(len(jobs),4);self.assertEqual(len({row['request_id'] for row in jobs}),4)
-    for row,angle in zip(jobs,('front view','left side','right side','back view')):
+    for key in ('ok','ordinary_inputs_preserved','late_input_ignored','role_scope','inferred_provenance','four_job_sequence','five_camera_sequence','no_auto_approval'):self.assertTrue(report[key],key)
+    self.assertTrue(payloads);self.assertTrue(all(value['verify'] and value['profile_ids']==[profile] for value in payloads));self.assertEqual(len(jobs),9);self.assertEqual(len({row['request_id'] for row in jobs}),9)
+    for row,angle in zip(jobs,('front view','left side','right side','back view','close-up portrait','three-quarter view','front view, full body','high angle view','low angle view')):
      self.assertIn(angle,row['scene_prompt'].decode());self.assertEqual(row['references'],image);self.assertEqual(json.loads(row['profile_ids']),[profile]);self.assertEqual(json.loads(row['entity_expectations'])['refs'][0]['content_version'],'c'*64)
   finally:server.shutdown();server.server_close();thread.join()
 

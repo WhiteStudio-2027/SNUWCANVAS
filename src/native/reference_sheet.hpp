@@ -20,4 +20,12 @@ inline ReferenceSheetDraft referenceSheetDraft(const json& baseSettings,const st
  for(int i=0;i<4;i++){auto angle=state;applyPromptEdit(angle,"scene_prompt",wide(std::string(views[i])+", single character, full body, neutral standing pose, plain background"));out.scenes.push_back({{"id",id()},{"page",""},{"name",utf8(sheetAngles[i].second)},{"angle",sheetAngles[i].first},{"hypothesis",true},{"hidden_view",i==3},{"snapshot",panelSnapshot(angle)},{"files",json::array({{{"path",utf8(source.wstring())},{"sha",hash}}})}});reviews.push_back({{"state","pending"},{"sha256",""},{"note",""}});}
  out.spec={{"version",1},{"profile",key},{"profile_name",name},{"content_version",version},{"source_sha256",hash},{"reviews",reviews}};return out;
 }
+inline ReferenceSheetDraft cameraStudyDraft(const json& settings,const std::string& negative,const json& profile,const fs::path& source,const std::string& hash,const std::string& mode){
+ auto out=referenceSheetDraft(settings,negative,profile,source,hash,mode);auto base=out.scenes[0];out.scenes=json::array();out.spec=nullptr;
+ const char* keys[]={"portrait","three_quarter","full_body","high_angle","low_angle"};
+ const wchar_t* names[]={L"얼굴 클로즈업",L"3/4 구도",L"전신",L"높은 시점",L"낮은 시점"};
+ const char* prompts[]={"close-up portrait, front view","three-quarter view, medium shot","front view, full body","high angle view, medium shot","low angle view, medium shot"};
+ for(int i=0;i<5;i++){auto row=base;row["id"]=id();row["name"]=utf8(names[i]);row["angle"]=keys[i];row["study_kind"]="camera";auto snapshot=row["snapshot"];applyPromptEdit(snapshot,"scene_prompt",wide(std::string(prompts[i])+", single character, neutral standing pose, plain background"));row["snapshot"]=panelSnapshot(snapshot);out.scenes.push_back(row);}return out;
+}
+
 }
