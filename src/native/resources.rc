@@ -6,6 +6,7 @@
 202 RCDATA "assets/welcome-background.png"
 203 RCDATA "assets/welcome-logo.png"
 204 RCDATA "assets/white-studio.png"
+205 RCDATA "assets/panorama-manifest.json"
 211 RCDATA "assets/fonts/NotoSansKR-Regular.ttf"
 212 RCDATA "assets/fonts/NotoSansKR-Bold.ttf"
 213 RCDATA "assets/fonts/GoogleSansCode-Regular.ttf"

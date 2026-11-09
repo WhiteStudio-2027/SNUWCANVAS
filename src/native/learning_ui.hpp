@@ -45,6 +45,8 @@ void featureRequest(const std::string& action,const std::string& method,const st
 void learningReply(const Event& event){
  if(event.data.contains("scope")&&str(event.data,"scope")!=str(store->settings,"_local_account_scope"))return;
  if(event.text=="profiles"||event.text=="create"||event.text=="profile_delete"||event.text=="profile_updated")entityRefreshAt=0;
+ if(event.text=="model_versions"){learningBusy=false;if(event.project==store->active)showTrainingVersions(event.data.value("reply",json::object()));return;}
+ if(event.text=="model_version_selected"){learningBusy=false;auto reply=event.data.value("reply",json::object());if(event.project==store->active&&str(reply,"id")==activeProfile()){entityRefreshAt=0;featureRequest("profile","GET","/learning/profiles/"+activeProfile());status=L"학습 버전 변경 완료 · 가중치 파일은 보존됩니다.";}return;}
  if(event.text=="training_status"){trainingStatusReply(event);return;}
  if(event.text=="reference_download"){referenceDownloadReply(event);return;}
  if(event.text=="reference_progress"){if(event.project==store->active){status=L"이미지 추가 "+std::to_wstring(event.data.value("done",0))+L" / "+std::to_wstring(event.data.value("total",0));learningNote=status;}return;}

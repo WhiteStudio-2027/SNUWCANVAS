@@ -1,0 +1,9 @@
+#pragma once
+#include "model.hpp"
+#include <cmath>
+#include <limits>
+namespace snuw {
+inline json seedConfig(const json& cfg){json out=json::object();for(auto& key:panelSettings())if(cfg.contains(key))out[key]=cfg[key];for(auto key:{"seed","count","_model_settings","_before_pixel","_before_pixel_model","_pixel_active"})out.erase(key);return out;}
+inline std::map<std::wstring,double> seedTerms(const std::string& text){std::map<std::wstring,double> terms;std::wstring word;auto flush=[&]{if(word.size()>1&&terms.size()<2048)terms[word]+=1;word.clear();};for(wchar_t c:wide(text)){if(iswalnum(c)||c>=128){if(word.size()<100)word+=towlower(c);}else flush();}flush();return terms;}
+inline std::vector<json> rankSeedCandidates(std::vector<json> rows,const std::string& prompt){auto query=seedTerms(prompt);std::vector<std::map<std::wstring,double>> documents;std::map<std::wstring,int> frequencies;for(auto& row:rows){auto terms=seedTerms(str(row,"prompt"));for(auto& [term,value]:terms)frequencies[term]++;documents.push_back(std::move(terms));}auto idf=[&](const std::wstring& term){return std::log((rows.size()+1.)/(frequencies[term]+1.))+1.;};double queryNorm=0;for(auto& [term,tf]:query){double weight=tf*idf(term);queryNorm+=weight*weight;}for(size_t i=0;i<rows.size();i++){double dot=0,norm=0;for(auto& [term,tf]:documents[i]){double weight=tf*idf(term);norm+=weight*weight;auto it=query.find(term);if(it!=query.end())dot+=weight*it->second*idf(term);}double similarity=queryNorm>0&&norm>0?dot/std::sqrt(queryNorm*norm):0;rows[i]["similarity"]=similarity;rows[i]["rank_score"]=similarity*.8+rows[i].value("stars",0)/5.*.2;}std::stable_sort(rows.begin(),rows.end(),[](const json& a,const json& b){if(a["rank_score"]!=b["rank_score"])return a["rank_score"].get<double>()>b["rank_score"].get<double>();return str(a,"candidate_id")<str(b,"candidate_id");});return rows;}
+}

@@ -1,5 +1,22 @@
 bool welcome=false,projectsOpen=false;
 Com<ID2D1Bitmap> welcomeBackground,welcomeLogo;
+bool welcomeBackgroundChecked=false;
+void loadApprovedWelcomeBackground(){
+ if(welcomeBackgroundChecked)return;welcomeBackgroundChecked=true;
+ try{
+  auto bytes=[](int key,DWORD limit){auto resource=FindResourceW(nullptr,MAKEINTRESOURCEW(key),RT_RCDATA);if(!resource)return std::string{};auto size=SizeofResource(nullptr,resource);if(!size||size>limit)return std::string{};auto data=LockResource(LoadResource(nullptr,resource));return data?std::string(static_cast<const char*>(data),size):std::string{};};
+  auto manifest=json::parse(bytes(205,65536));if(!manifest.is_object()||manifest.value("schema",0)!=1||str(manifest,"motion")!="none"||!manifest.contains("entries")||!manifest["entries"].is_array()||manifest["entries"].size()>7)return;
+  for(const auto& entry:manifest["entries"]){
+   if(!entry.is_object()||!flag(entry,"safe_approved")||!flag(entry,"rights_approved")||str(entry,"source").empty()||str(entry,"license").empty()||str(entry,"reviewed_by").empty()||str(entry,"reviewed_at").empty())continue;
+   // Only the bundled image slot is supported; manifests cannot read local paths or URLs.
+   if(!entry.contains("resource")||!entry["resource"].is_number_integer()||entry["resource"]!=202)continue;
+   auto expected=str(entry,"sha256");if(expected.size()!=64||expected.find_first_not_of("0123456789abcdef")!=std::string::npos)continue;
+   auto image=bytes(202,25*1024*1024);if(image.empty()||sha256(image)!=expected)continue;
+   auto bitmap=renderer.resource(202);if(!bitmap)continue;auto size=bitmap->GetSize();if(size.width<1||size.height<1||size.width>16384||size.height>16384)continue;
+   welcomeBackground=bitmap;return;
+  }
+ }catch(...){welcomeBackground.Reset();}
+}
 HWND navTooltip=nullptr;std::vector<std::wstring> navHintTexts;
 std::vector<std::pair<int,std::wstring>> navigationPages()const{
  std::vector<std::pair<int,std::wstring>> out;
@@ -24,10 +41,10 @@ void updateNavigationTips(){
 }
 void paintWelcome(){
  browser={};previewRect={};accountPopover=false;
- if(!welcomeBackground)welcomeBackground=renderer.resource(202);
+ if(!welcomeBackground)loadApprovedWelcomeBackground();
  if(!welcomeLogo)welcomeLogo=renderer.resource(203);
  if(welcomeBackground){auto size=welcomeBackground->GetSize();float scale=std::max(width/size.width,height/size.height);float sw=width/scale,sh=height/scale;renderer.target->DrawBitmap(welcomeBackground.Get(),D2D1::RectF(0,0,width,height),1,D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,D2D1::RectF((size.width-sw)/2,(size.height-sh)/2,(size.width+sw)/2,(size.height+sh)/2));}
- renderer.fill({0,0,width,height},0x101022,.72f);
+ renderer.fill({0,0,width,height},0x101011,welcomeBackground?.72f:1.f);
  float w=std::min(520.f,width-80),x=(width-w)/2,y=std::max(48.f,(height-430)/2);
  renderer.box({x,y,w,430},0x1b1b1c,0x333338,18);renderer.bitmap(welcomeLogo.Get(),{x+w/2-26,y+30,52,52});
  renderer.text(L"SNUWCANVAS",{x+40,y+101,w-80,45},0xe9e8f2,28,true,true);

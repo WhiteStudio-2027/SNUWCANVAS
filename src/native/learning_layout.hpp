@@ -20,7 +20,7 @@ LearningLayout learningLayout(Rect c,Rect g){
   input("profile_target",L"프로필",managed);
   if(selectedTextEntity()){out.title=L"장소 · 사물";actions({{35,L"프롬프트에 추가",true},{31,L"편집",false},{29,L"삭제",false},{1,L"새로고침",false}});break;}
   actions({{5,L"이미지 추가",true},{6,L"새로고침",false},{31,L"프로필 편집",false},{23,L"선택 삭제",false},{28,L"학습 모델 삭제",false},{29,L"프로필 삭제",false}});
-  if(!selectedTextEntity())actions({{36,L"참조 시트",false}});
+  if(!selectedTextEntity())actions({{36,L"참조 시트",false}});if(developer()&&!selectedTextEntity())actions({{37,L"학습 버전 선택",false}});
   {auto found=referenceProfiles.find(profileId(str(store->settings,"profile_target")));if(found!=referenceProfiles.end()&&str(found->second.value("training_setup",json::object()),"reason")=="pipeline_mismatch")actions({{30,L"서버 모델에 맞추기",true}});}
   input("profile_caption",L"공통 캡션 (선택)");out.inputs.back().control.h=40;y-=24;
   out.referencesY=y+4;out.referencesHeight=std::max(110.f,out.clip.h-y-82-(trainingStatusProfile==profileId(str(store->settings,"profile_target"))&&!trainingStatus.empty()?208.f:0.f));y+=out.referencesHeight+12;
@@ -57,6 +57,7 @@ void learningAction(int action){switch(action){
  case 5:uploadLearningReference();break;case 36:setPage(15);break;
  case 23:deleteSelectedReferences();break;
  case 28:manageLearningProfile("model");break;
+ case 37:requestTrainingVersions();break;
  case 29:manageLearningProfile("profile");break;
  case 30:manageLearningProfile("align");break;
  case 27:referenceTransferCancel=true;break;
