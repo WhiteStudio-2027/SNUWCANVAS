@@ -1,6 +1,5 @@
 // Members of App. Storyboards remain local; only generation provenance is sent.
 std::thread storyResolveThread;std::atomic_bool storyResolveCancel{false};bool storyResolveRunning=false;
-std::map<fs::path,std::pair<fs::file_time_type,std::string>> imagePanelIds;
 json storyResolveInput(){return {{"sections",wirePromptDrafts(store->state)},{"profile_ids",selectedProfiles(store->settings)},{"pipeline",modelId(store->settings)}};}
 std::wstring storyboardTitle(){if(!store->hasStoryboard())return L"페이지·컷";auto& board=store->current()["storyboard"];size_t number=0;for(auto& page:board["pages"]){number++;if(str(page,"id")==str(board,"active_page"))break;}return L"P"+std::to_wstring(number)+L" · "+wide(str(activeBoardPanel(board),"name"));}
 void afterStoryChange(){storyResolveCancel=true;clearProfileEdit();selected.clear();preview.Reset();imageW=imageH=0;refIndex=0;formScroll=0;rebuild(false);scan();auto value=store->state.value("selected",json(nullptr));if(value.is_string()){auto path=fs::path(wide(value.get<std::string>()));if(std::find(paths.begin(),paths.end(),path)!=paths.end())select(path);}status=L"컷 설정을 불러왔습니다.";}
