@@ -28,4 +28,11 @@ inline ReferenceSheetDraft cameraStudyDraft(const json& settings,const std::stri
  for(int i=0;i<5;i++){auto row=base;row["id"]=id();row["name"]=utf8(names[i]);row["angle"]=keys[i];row["study_kind"]="camera";auto snapshot=row["snapshot"];applyPromptEdit(snapshot,"scene_prompt",wide(std::string(prompts[i])+", single character, neutral standing pose, plain background"));row["snapshot"]=panelSnapshot(snapshot);out.scenes.push_back(row);}return out;
 }
 
+inline ReferenceSheetDraft styleStudyDraft(const json& settings,const std::string& negative,const json& character,const json& style,const fs::path& source,const std::string& hash,const std::string& mode){
+ auto key=str(style,"id"),name=str(style,"name"),version=str(style,"content_version");if(str(style,"kind")!="style"||!boardId(key)||key==str(character,"id")||name.empty()||name.size()>400||name.find_first_of(":\\/\r\n")!=std::string::npos||!sheetHash(version))throw std::runtime_error("비교할 화풍 프로필을 선택하세요.");
+ auto out=referenceSheetDraft(settings,negative,character,source,hash,mode);auto baseline=out.scenes[0];baseline["id"]=id();baseline["study_kind"]="style_compare";baseline["name"]="기본";baseline["angle"]="baseline";auto styled=baseline;styled["id"]=id();styled["name"]=name;styled["angle"]="styled";auto snapshot=styled["snapshot"];snapshot["settings"]["style_profile"]=key+" | "+name;applyPromptEdit(snapshot,"style_prompt",L":"+wide(name)+L":");snapshot["_entity_expectations"]["refs"].push_back({{"id",key},{"kind","style"},{"content_version",version},{"aliases",json::array({name})}});styled["snapshot"]=panelSnapshot(snapshot);out.scenes=json::array({baseline,styled});out.spec=nullptr;return out;
+}
+
+inline bool sameStyleStudy(const json& run,int a,int b){try{auto ta=run.at("tasks").at(a),tb=run.at("tasks").at(b);auto sa=run.at("scenes").at(ta.at("scene").get<int>()),sb=run.at("scenes").at(tb.at("scene").get<int>());if(str(sa,"study_kind")!="style_compare"||str(sb,"study_kind")!="style_compare"||ta.at("seed")!=tb.at("seed"))return false;auto x=sa.at("snapshot"),y=sb.at("snapshot"),cx=x.at("settings"),cy=y.at("settings");cx.erase("style_profile");cy.erase("style_profile");return cx==cy&&x.at("project").at("references")==y.at("project").at("references")&&x.at("_entity_expectations").at("refs").at(0)==y.at("_entity_expectations").at("refs").at(0);}catch(...){return false;}}
+
 }

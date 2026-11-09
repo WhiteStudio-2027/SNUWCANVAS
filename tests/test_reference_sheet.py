@@ -36,6 +36,7 @@ class ReferenceSheetTests(unittest.TestCase):
      if self.path.endswith('/events'):
       body=(json.dumps(value)+'\n').encode();self.send_response(200);self.send_header('Content-Type','application/x-ndjson');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
      else:self.send(value)
+    elif self.path.endswith('d'*32):self.send({'id':'d'*32,'name':'Style Test','kind':'style','content_version':'e'*64,'pipeline':'sdxl'})
     else:time.sleep(.12);self.send({'id':profile,'name':'Sheet Character','kind':'character','content_version':'c'*64,'pipeline':'sdxl'})
    def do_POST(self):
     calls.append(('POST',self.path));raw=self.rfile.read(int(self.headers.get('Content-Length',0)))
@@ -54,10 +55,11 @@ class ReferenceSheetTests(unittest.TestCase):
       data=json.loads(file.read_text(encoding='utf-8'));runs.extend([{key:task.get(key) for key in ('state','error','job','candidate')} for run in data.get('runs',[]) for task in run.get('tasks',[])])
     self.assertEqual(result.returncode,0,{'report':report,'calls':calls,'runs':runs});self.assertEqual(report['layouts'],4)
     shutil.copyfile(folder/'reference-sheet-ui.png',ROOT.parent/'docs/v3/reference-sheet-ui.png')
-    for key in ('ok','ordinary_inputs_preserved','late_input_ignored','role_scope','inferred_provenance','four_job_sequence','five_camera_sequence','no_auto_approval'):self.assertTrue(report[key],key)
-    self.assertTrue(payloads);self.assertTrue(all(value['verify'] and value['profile_ids']==[profile] for value in payloads));self.assertEqual(len(jobs),9);self.assertEqual(len({row['request_id'] for row in jobs}),9)
-    for row,angle in zip(jobs,('front view','left side','right side','back view','close-up portrait','three-quarter view','front view, full body','high angle view','low angle view')):
-     self.assertIn(angle,row['scene_prompt'].decode());self.assertEqual(row['references'],image);self.assertEqual(json.loads(row['profile_ids']),[profile]);self.assertEqual(json.loads(row['entity_expectations'])['refs'][0]['content_version'],'c'*64)
+    for key in ('ok','ordinary_inputs_preserved','late_input_ignored','role_scope','inferred_provenance','four_job_sequence','five_camera_sequence','style_pair_sequence','no_auto_approval'):self.assertTrue(report[key],key)
+    self.assertTrue(payloads);self.assertTrue(all(value['verify'] and value['profile_ids'][0]==profile for value in payloads));self.assertEqual(len(jobs),11);self.assertEqual(len({row['request_id'] for row in jobs}),11)
+    for row,angle in zip(jobs,('front view','left side','right side','back view','close-up portrait','three-quarter view','front view, full body','high angle view','low angle view','front view','front view')):
+     self.assertIn(angle,row['scene_prompt'].decode());self.assertEqual(row['references'],image);self.assertEqual(json.loads(row['profile_ids'])[0],profile);self.assertEqual(json.loads(row['entity_expectations'])['refs'][0]['content_version'],'c'*64)
+    self.assertEqual(jobs[-2]['seed'],jobs[-1]['seed']);self.assertEqual(json.loads(jobs[-1]['profile_ids']),[profile,'d'*32]);self.assertEqual(json.loads(jobs[-1]['entity_expectations'])['refs'][1]['content_version'],'e'*64)
   finally:server.shutdown();server.server_close();thread.join()
 
  def test_four_angle_hypotheses_review_source_and_profile_versions(self):
