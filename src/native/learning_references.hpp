@@ -65,19 +65,19 @@ std::wstring trainingState(const json& data)const{
  return count<minimum?L"학습 이미지 "+std::to_wstring(count)+L" / "+std::to_wstring(minimum)+L"장":L"학습 준비됨";
 }
 void loadReferenceProfile(){cancelReferenceDownloads();referencePreviewError.clear();save();referenceThumbFailures.clear();referenceScroll=0;selectedReferences.clear();featureRequest("profile","GET","/learning/profiles/"+activeProfile());}
-void startReferenceTransfer(std::vector<fs::path> files,std::vector<std::string> deletions={}){
+void startReferenceTransfer(std::vector<fs::path> files,std::vector<std::string> deletions={},const std::map<fs::path,std::string>& expectedHashes={},bool allowAutoTraining=true,const json& captionOverride=json(nullptr)){
  if(learningBusy)return;if(files.size()>100)throw std::runtime_error("이미지는 한 번에 최대 100장까지 추가할 수 있습니다.");
  save();auto profile=activeProfile(),project=store->active;auto cfg=store->settings;auto root=store->root;auto* e=engine;
  for(auto& file:files){std::error_code ec;auto size=fs::file_size(file,ec);if(ec||!size||size>25*1024*1024||!imagePath(file))throw std::runtime_error("이미지는 장당 25MB 이하의 PNG·JPG·WEBP 파일을 선택하세요.");}
  cancelReferenceDownloads();if(referenceTransferThread.joinable())referenceTransferThread.join();referenceTransferCancel=false;referenceUploadRunning=true;learningBusy=true;learningNote=files.empty()?L"이미지 삭제 중…":L"이미지 추가 0 / "+std::to_wstring(files.size());
  for(auto& field:fields)if(field.key=="profile_target")EnableWindow(field.hwnd,FALSE);
- referenceTransferThread=std::thread([this,files=std::move(files),deletions=std::move(deletions),profile,project,cfg,root,e]{
+ referenceTransferThread=std::thread([this,files=std::move(files),deletions=std::move(deletions),profile,project,cfg,root,e,expectedHashes,allowAutoTraining,captionOverride]{
   CoInitializeEx(nullptr,COINIT_MULTITHREADED);json reply=json::object();std::string message;int completed=0;
   try{NetworkScope scope(&referenceTransferCancel,std::chrono::steady_clock::now()+std::chrono::minutes(30),str(cfg,"content_mode","standard"));
-   for(auto& file:files){Multipart form;form.file("image",file);form.field("caption",str(cfg,"profile_caption"));form.field("defer_training","true");
+   for(auto& file:files){Multipart form;auto expected=expectedHashes.find(file);form.file("image",file,25*1024*1024,expected==expectedHashes.end()?"":expected->second);form.field("caption",captionOverride.is_string()?captionOverride.get<std::string>():str(cfg,"profile_caption"));form.field("defer_training","true");
     auto response=request("POST",joinUrl(str(cfg,"api"),"/learning/profiles/"+profile+"/references"),str(cfg,"api_key"),form.finish(),form.type(),&referenceTransferCancel,1024*1024,120000);
     if(response.code==429)throw std::runtime_error("요청 또는 이미지 보관 한도에 도달했습니다.");response.object();completed++;
-    e->event({"learning_reply",project,"reference_progress",{{"done",completed},{"total",files.size()}}});
+    e->event({"learning_reply",project,"reference_progress",{{"scope",str(cfg,"_local_account_scope")},{"done",completed},{"total",files.size()}}});
    }
    for(size_t begin=0;begin<deletions.size();begin+=100){json ids=json::array();for(size_t i=begin;i<std::min(deletions.size(),begin+100);i++)ids.push_back(deletions[i]);
     auto response=request("POST",joinUrl(str(cfg,"api"),"/learning/profiles/"+profile+"/references/delete"),str(cfg,"api_key"),json{{"asset_ids",ids}}.dump(),"application/json",&referenceTransferCancel,1024*1024,120000);
@@ -87,11 +87,11 @@ void startReferenceTransfer(std::vector<fs::path> files,std::vector<std::string>
   }catch(const std::exception& x){message=referenceTransferCancel?"중지했습니다.":userError(x.what());}
   try{NetworkScope finish(&referenceShutdown,std::chrono::steady_clock::now()+std::chrono::seconds(30),str(cfg,"content_mode","standard"));
    reply=request("GET",joinUrl(str(cfg,"api"),"/learning/profiles/"+profile),str(cfg,"api_key"),"","application/json",nullptr,16*1024*1024,30000).object();
-   if(message.empty()&&!referenceTransferCancel&&!files.empty()&&(flag(reply,"auto_train")||str(reply,"auto_train")=="1")&&reply.value("training_setup",json::object()).value("ready",false)){
+   if(allowAutoTraining&&message.empty()&&!referenceTransferCancel&&!files.empty()&&(flag(reply,"auto_train")||str(reply,"auto_train")=="1")&&reply.value("training_setup",json::object()).value("ready",false)){
     auto result=request("POST",joinUrl(str(cfg,"api"),"/learning/profiles/"+profile+"/train"),str(cfg,"api_key"),"{}","application/json",nullptr,1024*1024,30000);if(result.code!=429)reply["training"]=json::array({result.object()});
    }
   }catch(const std::exception& x){if(message.empty())message=userError(x.what());}
-  e->event({"learning_reply",project,"reference_batch",{{"reply",reply},{"message",message},{"done",completed},{"deleting",!deletions.empty()}}});CoUninitialize();
+  e->event({"learning_reply",project,"reference_batch",{{"scope",str(cfg,"_local_account_scope")},{"reply",reply},{"message",message},{"done",completed},{"deleting",!deletions.empty()}}});CoUninitialize();
  });
 }
 void deleteSelectedReferences(){

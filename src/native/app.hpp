@@ -166,6 +166,7 @@ public:
  void emotion(){std::vector<std::pair<std::wstring,std::string>> options={{L"슬픔","sad expression, downcast eyes, small closed mouth, head slightly lowered, shoulders drawn inward"},{L"화남","angry expression, narrowed eyes, furrowed brows, closed mouth, shoulders squared"},{L"기쁨","happy expression, bright smile, lively eyes, head slightly tilted, relaxed shoulders"},{L"부끄러움","shy expression, blushing cheeks, averted gaze, small closed-mouth smile, shoulders drawn inward"}};HMENU menu=CreatePopupMenu();for(int i=0;i<4;i++)AppendMenuW(menu,MF_STRING,i+1,options[i].first.c_str());POINT p;GetCursorPos(&p);int choice=TrackPopupMenu(menu,TPM_RETURNCMD,p.x,p.y,0,hwnd,nullptr);DestroyMenu(menu);if(choice>0){auto text=textOf(positive);if(!text.empty())text+=L", ";text+=wide(options[choice-1].second);SetWindowTextW(positive,text.c_str());store->state["emotion"]=utf8(options[choice-1].first);save();}}
 
 #include "learning_ui.hpp"
+#include "audition_promotion.hpp"
 #include "global_ui.hpp"
 #include "studio_navigation.hpp"
 #include "account_page.hpp"
