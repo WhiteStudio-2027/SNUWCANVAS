@@ -70,9 +70,9 @@ inline thread_local const char* networkMode="standard";
 inline thread_local const std::atomic_bool* networkStop=nullptr;
 inline thread_local auto networkDeadline=std::chrono::steady_clock::time_point::max();
 struct NetworkScope {
- const std::atomic_bool* oldStop;std::chrono::steady_clock::time_point oldDeadline;const char* oldMode;
- NetworkScope(const std::atomic_bool* flag,std::chrono::steady_clock::time_point deadline,const std::string& mode="standard"):oldStop(networkStop),oldDeadline(networkDeadline),oldMode(networkMode){networkStop=flag;networkDeadline=deadline;networkMode=mode=="hardcore"?"hardcore":"standard";}
- ~NetworkScope(){networkStop=oldStop;networkDeadline=oldDeadline;networkMode=oldMode;}
+ const std::atomic_bool* oldStop;const std::atomic_bool* oldLegalStop;std::chrono::steady_clock::time_point oldDeadline;const char* oldMode;
+ NetworkScope(const std::atomic_bool* flag,std::chrono::steady_clock::time_point deadline,const std::string& mode="standard"):oldStop(networkStop),oldLegalStop(legalCancellationStop),oldDeadline(networkDeadline),oldMode(networkMode){networkStop=flag;legalCancellationStop=flag;networkDeadline=deadline;networkMode=mode=="hardcore"?"hardcore":"standard";}
+ ~NetworkScope(){networkStop=oldStop;legalCancellationStop=oldLegalStop;networkDeadline=oldDeadline;networkMode=oldMode;}
 };
 inline bool accountControlRequest(const Url& url){
  auto path=utf8(url.path);auto query=path.find('?');if(query!=std::string::npos)path.resize(query);
