@@ -1,3 +1,5 @@
+> 2026-11-10: 이 client 폴더와 실행 파일은 작업 공간의 `클라이언트 내부/`로 이동했습니다. 바깥의 `SNUWCANVAS 실행.lnk`로 실행하며, 아래의 실행 파일 루트는 `클라이언트 내부/`를 뜻합니다. 서버 소스는 바깥 작업 공간의 server에 유지됩니다.
+
 # SNUWCANVAS
 
 Windows 네이티브 C++20 클라이언트입니다. Python/Tkinter/PyInstaller를 실행하지 않습니다.

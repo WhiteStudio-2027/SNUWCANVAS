@@ -9,8 +9,10 @@ import unittest
 from uuid import UUID
 
 ROOT=Path(__file__).resolve().parents[1]
+# The server folder sits beside client/ in the source repo, or one level higher in the desktop layout.
+SERVER=next((p/'server' for p in (ROOT.parent,ROOT.parent.parent) if (p/'server/version.json').is_file()),ROOT.parent/'server')
 EXE=ROOT.parent/'SNUWCANVAS.exe'
-VERSION=json.loads((ROOT.parent/'server/version.json').read_text(encoding='utf-8'))['client_version']
+VERSION=json.loads((SERVER/'version.json').read_text(encoding='utf-8'))['client_version']
 
 @unittest.skipUnless(EXE.exists(),'Build native client first')
 class FoundationClientTests(unittest.TestCase):

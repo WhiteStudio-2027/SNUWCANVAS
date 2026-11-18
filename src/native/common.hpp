@@ -16,6 +16,7 @@
 #include <shlobj.h>
 #include <winhttp.h>
 #include <dwmapi.h>
+#include <uxtheme.h>
 #include <d2d1.h>
 #include <dwrite.h>
 #include <wincodec.h>
@@ -48,7 +49,7 @@ inline std::string id(){GUID g;CoCreateGuid(&g);wchar_t b[40];StringFromGUID2(g,
 inline std::wstring extendedWindowsPath(const fs::path& path){auto value=path.wstring();std::replace(value.begin(),value.end(),L'/',wchar_t(92));if(value.rfind(L"\\\\?\\",0)==0)return value;if(value.rfind(L"\\\\.\\",0)==0)throw std::runtime_error("장치 경로는 사용할 수 없습니다.");DWORD needed=GetFullPathNameW(value.c_str(),0,nullptr,nullptr);if(!needed)throw std::runtime_error("파일 경로를 확인할 수 없습니다.");std::wstring resolved(needed,L'\0');DWORD written=GetFullPathNameW(value.c_str(),needed,resolved.data(),nullptr);if(!written||written>=needed)throw std::runtime_error("파일 경로가 너무 깁니다.");resolved.resize(written);value=std::move(resolved);std::replace(value.begin(),value.end(),L'/',wchar_t(92));return value.rfind(L"\\\\",0)==0?L"\\\\?\\UNC\\"+value.substr(2):L"\\\\?\\"+value;}
 inline std::string readFile(const fs::path& p){std::ifstream f(fs::path(extendedWindowsPath(p)),std::ios::binary);if(!f)throw std::runtime_error("파일 읽기 실패: "+utf8(p.wstring()));return std::string(std::istreambuf_iterator<char>(f),{});}
 inline json readJson(const fs::path& p){auto s=readFile(p);return json::parse(s);}
-inline void atomicWrite(const fs::path& p,const std::string& s){auto target=fs::path(extendedWindowsPath(p));fs::create_directories(target.parent_path());auto tmp=target;tmp+=L"."+wide(id())+L".tmp";{std::ofstream f(tmp,std::ios::binary);f.write(s.data(),s.size());f.flush();if(!f)throw std::runtime_error("저장 실패");}if(!MoveFileExW(tmp.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)){fs::remove(tmp);throw std::runtime_error("파일 교체 실패");}}
+inline void atomicWrite(const fs::path& p,const std::string& s){auto target=fs::path(extendedWindowsPath(p));fs::create_directories(target.parent_path());auto tmp=target;tmp+=L"."+wide(id())+L".tmp";{std::ofstream f(tmp,std::ios::binary);f.write(s.data(),s.size());f.flush();if(!f)throw std::runtime_error("저장 실패");}bool moved=false;for(unsigned attempt=0;attempt<8;attempt++){if(MoveFileExW(tmp.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)){moved=true;break;}auto error=GetLastError();auto attributes=GetFileAttributesW(target.c_str());bool readonly=attributes!=INVALID_FILE_ATTRIBUTES&&(attributes&(FILE_ATTRIBUTE_READONLY|FILE_ATTRIBUTE_DIRECTORY));if(readonly||(error!=ERROR_SHARING_VIOLATION&&error!=ERROR_LOCK_VIOLATION&&error!=ERROR_ACCESS_DENIED)||attempt==7)break;Sleep(1u<<std::min(attempt,4u));}if(!moved){std::error_code ignored;fs::remove(tmp,ignored);throw std::runtime_error("파일 교체 실패");}}
 inline fs::path exeDir(){wchar_t b[32768];GetModuleFileNameW(nullptr,b,32768);return fs::path(b).parent_path();}
 inline std::wstring textOf(HWND h){int n=GetWindowTextLengthW(h);std::wstring s(n+1,0);GetWindowTextW(h,s.data(),n+1);s.resize(n);return s;}
 inline std::string timestamp(){SYSTEMTIME t;GetLocalTime(&t);char b[64];snprintf(b,sizeof b,"%04d%02d%02d_%02d%02d%02d_%03d",t.wYear,t.wMonth,t.wDay,t.wHour,t.wMinute,t.wSecond,t.wMilliseconds);return b;}

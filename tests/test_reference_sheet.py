@@ -59,7 +59,7 @@ class ReferenceSheetTests(unittest.TestCase):
     self.assertTrue(payloads);self.assertTrue(all(value['verify'] and value['profile_ids'][0]==profile for value in payloads));self.assertEqual(len(jobs),11);self.assertEqual(len({row['request_id'] for row in jobs}),11)
     for row,angle in zip(jobs,('front view','left side','right side','back view','close-up portrait','three-quarter view','front view, full body','high angle view','low angle view','front view','front view')):
      self.assertIn(angle,row['scene_prompt'].decode());self.assertEqual(row['references'],image);self.assertEqual(json.loads(row['profile_ids'])[0],profile);self.assertEqual(json.loads(row['entity_expectations'])['refs'][0]['content_version'],'c'*64)
-    self.assertEqual(jobs[-2]['seed'],jobs[-1]['seed']);self.assertEqual(json.loads(jobs[-1]['profile_ids']),[profile,'d'*32]);self.assertEqual(json.loads(jobs[-1]['entity_expectations'])['refs'][1]['content_version'],'e'*64)
+    self.assertEqual(len({row['seed'] for row in jobs[:4]}),1);self.assertEqual(len({row['seed'] for row in jobs[4:9]}),1);self.assertEqual(jobs[-2]['seed'],jobs[-1]['seed']);self.assertEqual(json.loads(jobs[-1]['profile_ids']),[profile,'d'*32]);self.assertEqual(json.loads(jobs[-1]['entity_expectations'])['refs'][1]['content_version'],'e'*64)
   finally:server.shutdown();server.server_close();thread.join()
 
  def test_four_angle_hypotheses_review_source_and_profile_versions(self):

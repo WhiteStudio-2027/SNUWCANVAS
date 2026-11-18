@@ -2,18 +2,20 @@ param([switch]$Publish,[switch]$CustomServer)
 $ErrorActionPreference = 'Stop'
 $clientRoot = Split-Path $PSScriptRoot -Parent
 $repoRoot = Split-Path $clientRoot -Parent
+$serverWorkspace = $repoRoot
+if (-not (Test-Path -LiteralPath (Join-Path $serverWorkspace "server/version.json"))) { $serverWorkspace = Split-Path $repoRoot -Parent }
 Set-Location -LiteralPath $clientRoot
 $compiler = 'C:\msys64\ucrt64\bin\g++.exe'
 $resourceCompiler = 'C:\msys64\ucrt64\bin\windres.exe'
 New-Item -ItemType Directory -Force -Path "$clientRoot/.build" | Out-Null
-$versionPath = Join-Path $repoRoot 'server/version.json'
+$versionPath = Join-Path $serverWorkspace 'server/version.json'
 $manifest = Get-Content -LiteralPath $versionPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $displayVersion = if ($manifest.display_version) { $manifest.display_version } else { $manifest.client_version }
-$legalPath = Join-Path $repoRoot ("server/legal/consent-" + $manifest.consent_version + ".md")
+$legalPath = Join-Path $serverWorkspace ("server/legal/consent-" + $manifest.consent_version + ".md")
 $legal = (Get-Content -LiteralPath $legalPath -Raw -Encoding UTF8).Replace("`r`n", "`n")
-$publicKeyPath = Join-Path $repoRoot 'server/update-public.der'
+$publicKeyPath = Join-Path $serverWorkspace 'server/update-public.der'
 $publicHex = if (Test-Path -LiteralPath $publicKeyPath) { ([System.IO.File]::ReadAllBytes($publicKeyPath) | ForEach-Object { $_.ToString('x2') }) -join '' } else { '' }
-$modelGuards = Get-Content -LiteralPath (Join-Path $repoRoot 'server/src/snuwserver/model_guards.json') -Raw -Encoding UTF8
+$modelGuards = Get-Content -LiteralPath (Join-Path $serverWorkspace 'server/src/snuwserver/model_guards.json') -Raw -Encoding UTF8
 $header = '#pragma once' + "`nnamespace snuw {`n" +
     'inline constexpr const char* CLIENT_VERSION = "' + $manifest.client_version + '";' + "`n" +
     'inline constexpr const char* CLIENT_DISPLAY_VERSION = "' + $displayVersion + '";' + "`n" +

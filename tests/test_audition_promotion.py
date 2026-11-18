@@ -24,5 +24,5 @@ class AuditionPromotionTests(unittest.TestCase):
     report=json.loads((folder/'audition-promotion-result.json').read_text(encoding='utf-8'));self.assertEqual(process.returncode,0,report)
     for key in ('ok','scope_mode_server','selected_only','file_integrity','provenance','explicit_upload'):self.assertTrue(report[key],key)
     posts=[path for method,path in calls if method=='POST'];self.assertEqual(posts,['/learning/profiles/'+profile+'/references'])
-    self.assertEqual(len(bodies),1);self.assertIn(image,bodies[0]);self.assertIn(b'name="defer_training"\r\n\r\ntrue',bodies[0]);self.assertNotIn(b'changed',bodies[0])
+    self.assertEqual(len(bodies),1);self.assertIn(image,bodies[0]);self.assertIn(b'name="defer_training"\r\n\r\ntrue',bodies[0]);self.assertNotIn(b'changed',bodies[0]);self.assertIn(b'left side profile view, full body',bodies[0]);self.assertNotIn(b'Preserved caption draft',bodies[0])
   finally:server.shutdown();server.server_close();thread.join()

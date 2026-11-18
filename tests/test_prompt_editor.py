@@ -7,8 +7,10 @@ import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
+# The server folder sits beside client/ in the source repo, or one level higher in the desktop layout.
+SERVER=next((p/'server' for p in (ROOT.parent,ROOT.parent.parent) if (p/'server/version.json').is_file()),ROOT.parent/'server')
 EXE=ROOT.parent/'SNUWCANVAS.exe'
-spec=importlib.util.spec_from_file_location('slot_reference',ROOT.parent/'server/src/snuwserver/prompt_document.py')
+spec=importlib.util.spec_from_file_location('slot_reference',SERVER/'src/snuwserver/prompt_document.py')
 reference=importlib.util.module_from_spec(spec);spec.loader.exec_module(reference)
 
 

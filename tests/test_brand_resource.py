@@ -15,3 +15,7 @@ class BrandResourceTests(unittest.TestCase):
         for name in ('CompanyName','LegalCopyright'):
             pointer=ctypes.c_void_p();length=wintypes.UINT();self.assertTrue(version.VerQueryValueW(data,'\\StringFileInfo\\040904B0\\'+name,ctypes.byref(pointer),ctypes.byref(length)))
             self.assertIn('White Studio',ctypes.wstring_at(pointer,length.value).rstrip('\0'))
+        for name in ('ProductName','LegalCopyright'):
+            pointer=ctypes.c_void_p();length=wintypes.UINT();self.assertTrue(version.VerQueryValueW(data,'\\StringFileInfo\\040904B0\\'+name,ctypes.byref(pointer),ctypes.byref(length)))
+            value=ctypes.wstring_at(pointer,length.value).rstrip('\0')
+            self.assertIn('SNUWCANVAS',value);self.assertNotIn('SNUW Canvas',value)

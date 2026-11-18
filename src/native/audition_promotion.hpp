@@ -27,7 +27,7 @@ void promoteAuditionTraining(const std::string& profile,bool sheetOnly=false){
  if(!target||!boardId(profile)||textEntityKind(str(*target,"kind")))throw std::runtime_error("현재 서버의 캐릭터 또는 화풍 프로필을 선택하세요.");
  store->settings["profile_target"]=profile+" | "+str(*target,"name");store->save();page=7;consistencyView=2;formScroll=0;rebuild(false);
  // The normal upload worker checks the exact bytes before sending. Auto-train is deliberately disabled.
- auto path=fs::path(wide(str(source,"path")));startReferenceTransfer({path},{},{{path,str(source,"sha256")}},false,"");
+ auto& scene=auditions().run(auditionRun)["scenes"][source.at("scene").get<int>()];auto caption=str(wirePromptDrafts(scene.at("snapshot")),"scene_prompt");if(wide(caption).size()>4000)throw std::runtime_error("장면 설명을 4000자 이하로 줄인 뒤 학습 이미지로 추가하세요.");auto path=fs::path(wide(str(source,"path")));startReferenceTransfer({path},{},{{path,str(source,"sha256")}},false,caption);
 }
 void auditionTrainingMenu(){
  if(!developer())throw std::runtime_error("학습 이미지 추가는 개발자 권한이 필요합니다.");auditionPromotionCandidate();if(learningProfiles.empty())throw std::runtime_error("일관성에서 프로필 목록을 먼저 새로고침하세요.");

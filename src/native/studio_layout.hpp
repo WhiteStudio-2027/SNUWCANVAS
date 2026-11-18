@@ -5,7 +5,7 @@ namespace snuw {
 struct StudioLayout {
  float sidebar,editor,canvas;
  StudioLayout(float width,int page,float sidebarWidth=184):sidebar(sidebarWidth){
-  float preferred=page==0?380.f:520.f;
+  float preferred=page==0?480.f:520.f;
   editor=std::max(300.f,std::min(preferred,width-sidebar-320));
   canvas=std::max(280.f,width-sidebar-editor-30);
  }

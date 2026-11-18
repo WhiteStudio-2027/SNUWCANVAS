@@ -7,6 +7,16 @@
 203 RCDATA "assets/welcome-logo.png"
 204 RCDATA "assets/white-studio.png"
 205 RCDATA "assets/panorama-manifest.json"
+230 RCDATA "assets/panorama-01.png"
+231 RCDATA "assets/panorama-02.png"
+232 RCDATA "assets/panorama-03.png"
+233 RCDATA "assets/panorama-04.png"
+234 RCDATA "assets/panorama-05.png"
+235 RCDATA "assets/panorama-06.png"
+236 RCDATA "assets/panorama-07.png"
+237 RCDATA "assets/panorama-08.png"
+238 RCDATA "assets/panorama-09.png"
+239 RCDATA "assets/panorama-10.png"
 211 RCDATA "assets/fonts/NotoSansKR-Regular.ttf"
 212 RCDATA "assets/fonts/NotoSansKR-Bold.ttf"
 213 RCDATA "assets/fonts/GoogleSansCode-Regular.ttf"
@@ -23,9 +33,9 @@ BEGIN
   BLOCK "040904B0"
   BEGIN
    VALUE "FileDescription", "SNUWCANVAS"
-   VALUE "ProductName", "snuwcanvas"
+   VALUE "ProductName", "SNUWCANVAS"
    VALUE "CompanyName", "White Studio"
-   VALUE "LegalCopyright", "Copyright (C) White Studio"
+   VALUE "LegalCopyright", "Copyright (C) White Studio. SNUWCANVAS."
    VALUE "FileVersion", SNUW_VERSION_STRING
    VALUE "ProductVersion", SNUW_DISPLAY_VERSION
    VALUE "OriginalFilename", "SNUWCANVAS.exe"
