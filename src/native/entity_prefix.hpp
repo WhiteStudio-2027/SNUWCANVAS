@@ -6,13 +6,13 @@ inline EntityPrefix entityPrefix(const std::wstring& prefix){
  size_t opened=std::wstring::npos;bool escaped=false;
  for(size_t i=0;i<prefix.size();i++){
   auto c=prefix[i];if(c==L'\r'||c==L'\n'||c==L'/'){opened=std::wstring::npos;escaped=false;continue;}
-  if(c==L':'){
+  if(c==L'$'){
    if(i&&prefix[i-1]==L'\\'){escaped=true;opened=std::wstring::npos;continue;}
    if(escaped){escaped=false;continue;}
    if(opened!=std::wstring::npos){opened=std::wstring::npos;continue;}
-   if(i&&(iswdigit(prefix[i-1])||prefix[i-1]==L'/'))continue;
+   if(i&&prefix[i-1]==L'/')continue;
    opened=i;
-  }else if(opened!=std::wstring::npos&&(i-opened>100||(i==opened+1&&iswspace(c))))opened=std::wstring::npos;
+  }else if(opened!=std::wstring::npos&&(i-opened>100||c==L':'||c==L'\\'||(i==opened+1&&iswspace(c))))opened=std::wstring::npos;
  }
  if(opened==std::wstring::npos)return {};
  auto word=prefix.find_last_of(L" \t\r\n",opened);word=word==std::wstring::npos?0:word+1;auto context=prefix.substr(word,opened-word);
@@ -32,7 +32,7 @@ inline std::vector<std::wstring> matchingEntities(const json& rows,const std::ws
  if(!rows.is_array())return result;
  std::vector<std::wstring> names;std::map<std::wstring,int> counts;
  for(auto& row:rows){auto name=wide(str(row,"name"));auto id=str(row,"id");if(id.size()!=32||id.find_first_not_of("0123456789abcdef")!=std::string::npos)continue;auto start=name.find_first_not_of(L" \t\r\n"),end=name.find_last_not_of(L" \t\r\n");if(start==std::wstring::npos)continue;name=name.substr(start,end-start+1);
-  if(name.size()>100||name.find_first_of(L":/\\\r\n")!=std::wstring::npos||std::any_of(name.begin(),name.end(),[](wchar_t c){return c<32;}))continue;auto folded=entitySearchKey(name);bool numeric=std::all_of(folded.begin(),folded.end(),[](wchar_t c){WORD type=0;return GetStringTypeW(CT_CTYPE1,&c,1,&type)&&(type&C1_DIGIT);});if(numeric)continue;names.push_back(name);counts[folded]++;
+  if(name.size()>100||name.find_first_of(L"$:/\\\r\n")!=std::wstring::npos||std::any_of(name.begin(),name.end(),[](wchar_t c){return c<32;}))continue;auto folded=entitySearchKey(name);bool numeric=std::all_of(folded.begin(),folded.end(),[](wchar_t c){WORD type=0;return GetStringTypeW(CT_CTYPE1,&c,1,&type)&&(type&C1_DIGIT);});if(numeric)continue;names.push_back(name);counts[folded]++;
  }
  for(auto& name:names){auto folded=entitySearchKey(name);if(counts[folded]==1&&folded.rfind(key,0)==0)result.push_back(name);if(result.size()>=20)break;
  }return result;

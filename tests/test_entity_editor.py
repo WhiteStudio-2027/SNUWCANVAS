@@ -20,7 +20,7 @@ class EntityEditorTests(unittest.TestCase):
                 calls.append((self.path,self.headers.get('X-API-Key')))
                 payload=json.dumps({'suggestions':[{'id':'a'*32,'name':'하루','kind':'character','revision':0},
                                                    {'id':'b'*32,'name':'다른 인물','kind':'character','revision':0},
-                                                   {'id':'c'*32,'name':'bad:name','kind':'character','revision':0}]},ensure_ascii=False).encode('utf-8')
+                                                   {'id':'c'*32,'name':'bad$name','kind':'character','revision':0}]},ensure_ascii=False).encode('utf-8')
                 self.send_response(503 if self.path.startswith('/failure/') else 200)
                 self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(payload)))
                 self.end_headers();self.wfile.write(payload)

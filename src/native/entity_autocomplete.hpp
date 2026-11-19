@@ -18,8 +18,8 @@ void acceptEntity(size_t index){
  if(index>=entityMatches.size()||!positive||promptComposing||!developer())return;
  CHARRANGE selection{};SendMessageW(positive,EM_EXGETSEL,0,(LPARAM)&selection);if(selection.cpMin!=entityCaret||selection.cpMax!=entityCaret){hideEntitySuggestions();return;}
  std::wstring before(size_t(entityCaret)+1,L'\0');TEXTRANGEW beforeRange{{0,entityCaret},before.data()};auto length=SendMessageW(positive,EM_GETTEXTRANGE,0,(LPARAM)&beforeRange);before.resize(size_t(std::clamp(length,LRESULT(0),LRESULT(entityCaret))));auto current=entityPrefix(before);if(!current.valid||current.begin!=entityRange.begin||current.query!=entityRange.query){hideEntitySuggestions();return;}
- auto inserted=L":"+entityMatches[index]+L":";CHARRANGE replace{LONG(entityRange.begin),entityCaret};hideEntitySuggestions();
- wchar_t tail[2]{};TEXTRANGEW tailRange{{entityCaret,entityCaret+1},tail};SendMessageW(positive,EM_GETTEXTRANGE,0,(LPARAM)&tailRange);if(tail[0]==L':')replace.cpMax++;
+ auto inserted=L"$"+entityMatches[index]+L"$";CHARRANGE replace{LONG(entityRange.begin),entityCaret};hideEntitySuggestions();
+ wchar_t tail[2]{};TEXTRANGEW tailRange{{entityCaret,entityCaret+1},tail};SendMessageW(positive,EM_GETTEXTRANGE,0,(LPARAM)&tailRange);if(tail[0]==L'$')replace.cpMax++;
  SendMessageW(positive,EM_EXSETSEL,0,(LPARAM)&replace);SendMessageW(positive,EM_REPLACESEL,TRUE,(LPARAM)inserted.c_str());SetFocus(positive);syncPromptEditor();entityDismissed=promptDisplayed;
 }
 static LRESULT CALLBACK entityListProc(HWND window,UINT message,WPARAM a,LPARAM b,UINT_PTR id,DWORD_PTR data){
