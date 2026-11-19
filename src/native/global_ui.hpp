@@ -30,7 +30,7 @@ void accountOverlay(){
  button({panel.x+12,panel.y+161,226,32},L"모든 기기에서 로그아웃",[this]{accountPopover=false;if(MessageBoxW(hwnd,L"이 계정의 모든 로그인 세션을 종료할까요?",L"모든 기기에서 로그아웃",MB_YESNO|MB_ICONQUESTION)==IDYES)featureRequest("account_logout","POST",accountLogoutPath(true));},false,ready);
 }
 bool hardcore()const{return str(store->settings,"content_mode","standard")=="hardcore";}
-void toggleContentMode(){{std::lock_guard lock(engine->mutex);if(engine->busy||!engine->tasks.empty()){status=L"생성 작업이 끝난 뒤 모드를 변경하세요.";return;}}save();if(!hardcore()){modeAuthKey=str(store->settings,"api_key");modeAuthApi=str(store->settings,"api");featureRequest("enable_hardcore","GET","/auth/info");return;}store->settings["content_mode"]="standard";selected.clear();preview.Reset();save();rebuild(false);scan();}
+void toggleContentMode(){{std::lock_guard lock(engine->mutex);if(engine->busy||!engine->tasks.empty()){status=L"생성 작업이 끝난 뒤 모드를 변경하세요.";return;}}save();if(!hardcore()){modeAuthKey=str(store->settings,"api_key");modeAuthApi=str(store->settings,"api");featureRequest("enable_hardcore","GET","/auth/info");return;}galleryAuthContext=galleryAuthKey();galleryAuthAllowed=true;store->settings["content_mode"]="standard";selected.clear();preview.Reset();save();rebuild(false);scan();}
 void changeServerConnection(){
  if(accountWorkspaceBusy())throw std::runtime_error("작업이 끝난 뒤 서버를 변경하세요.");AccountTransitionScope transition(accountTransition);auto selected=chooseServerConnection(hwnd,store->baseRoot,str(store->settings,"api"));if(selected==str(store->settings,"api"))return;
  switchLocalAccount(json::object());store->settings["api"]=selected;store->save();welcome=true;rebuild(false);

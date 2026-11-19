@@ -36,22 +36,31 @@ void paintWelcomePanorama(){
  updateWelcomeTimer(pending||moving);
 }
 HWND navTooltip=nullptr;std::vector<std::wstring> navHintTexts;
-std::vector<std::pair<int,std::wstring>> navigationPages()const{return {{0,L"이미지 생성"},{1,L"참조 이미지"},{2,L"크기·품질"},{4,L"세부 기능"}};}
+std::vector<std::pair<int,std::wstring>> navigationPages()const{
+ std::vector<std::pair<int,std::wstring>> pages={{0,L"이미지 생성"},{1,L"참조 이미지"},{2,L"크기·품질"},{5,L"이미지 보정·확대"},{16,L"후보 만들기·비교"},{17,L"페이지·컷 구성"},{18,L"좋은 시드 추천"},{3,L"진행 기록"},{9,L"서버 이미지"}};
+ if(modelsSupported())pages.push_back({14,L"모델 추가·관리"});
+ if(developer()){pages.push_back({7,L"캐릭터·화풍 일관성"});pages.push_back({8,L"내 이미지로 학습"});pages.push_back({15,L"여러 각도 참조 시트"});pages.push_back({11,L"서버 관리"});}
+ pages.push_back({4,L"세부 설정"});return pages;
+}
 float navigationStep()const{return std::clamp((height-324)/std::max(1.f,float(navigationPages().size()-1)),24.f,36.f);}
+float navigationTileHeight()const{return std::min(34.f,navigationStep()-2);}
+void openNavigation(int id){if(id==16)auditionMenu();else if(id==17)storyboardMenu();else if(id==18)friendlySeedMenu();else if(id==4)openDetails(1);else{setPage(id);if(id==11&&!developerBusy)developerFetch();}}
+int navigationGlyph(int id)const{switch(id){case 0:return 0;case 1:return 1;case 2:return 2;case 3:return 9;case 4:return 14;case 5:return 7;case 7:return 10;case 8:return 8;case 9:return 1;case 11:return 4;case 14:return 15;case 15:return 6;case 16:return 6;case 17:return 3;case 18:return 0;default:return 10;}}
 void navigationPaint(){
  renderer.box({8,8,48,height-16},0x19191a,0x303033,10);
- auto tile=[&](Rect r,int glyph,bool active,std::function<void()> command){renderer.box(r,active?0x34343b:0x19191a,0,8);icon({r.x+9,r.y+9,16,16},glyph,active?0xb5c2ff:0x999eaf);buttons.push_back({r,L"",command,false});};
+ auto tile=[&](Rect r,int glyph,bool active,std::function<void()> command){renderer.box(r,active?0x34343b:0x19191a,0,8);icon({r.x+(r.w-16)/2,r.y+(r.h-16)/2,16,16},glyph,active?0xb5c2ff:0x999eaf);buttons.push_back({r,L"",command,false});};
  tile({15,20,34,34},11,projectsOpen,[this]{save();projectsOpen=!projectsOpen;leftWidth=projectsOpen?260.f:64.f;autoWorkspace=true;rebuild(false);});
- const int glyphs[]={0,1,2,9,4,6,7,10,8,15};int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*navigationStep(),34,34},id==15?10:id==14?15:id==11?4:id==4?14:glyphs[id],id==page,[this,id]{if(id==4)openDetails();else setPage(id);});row++;}
+ int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*navigationStep(),34,navigationTileHeight()},navigationGlyph(id),id==page,[this,id]{openNavigation(id);});row++;}
  float y=height-166;tile({15,y,34,34},12,false,[this]{save();status=L"저장 완료";});tile({15,y+40,34,34},11,false,[this]{projectMenu();});tile({15,y+80,34,34},14,page==10,[this]{setPage(10);});tile({15,y+120,34,34},5,page==13,[this]{accountMenu();});
 }
 void updateNavigationTips(){
- if(navTooltip&&!welcome){auto pages=navigationPages();for(size_t i=0;i<navHintTexts.size();i++){float y=i==0?20.f:i<=pages.size()?76+(i-1)*navigationStep():height-166+(i-pages.size()-1)*40.f;TOOLINFOW tool{sizeof tool};tool.hwnd=hwnd;tool.uId=i+1;tool.rect={LONG(15*dpi),LONG(y*dpi),LONG(49*dpi),LONG((y+34)*dpi)};SendMessageW(navTooltip,TTM_NEWTOOLRECTW,0,(LPARAM)&tool);}return;}
- if(navTooltip)DestroyWindow(navTooltip);navTooltip=nullptr;navHintTexts.clear();if(!hwnd||welcome)return;
- auto pages=navigationPages();navHintTexts.reserve(20);navHintTexts.push_back(L"프로젝트 목록");for(auto& p:pages)navHintTexts.push_back(p.second);navHintTexts.push_back(L"프로젝트 저장");navHintTexts.push_back(L"프로젝트 관리");navHintTexts.push_back(L"전체 설정");navHintTexts.push_back(L"내 계정");
+ auto pages=navigationPages();std::vector<std::wstring> texts{L"프로젝트 목록"};for(auto& p:pages)texts.push_back(p.second);texts.push_back(L"프로젝트 저장");texts.push_back(L"프로젝트 관리");texts.push_back(L"전체 설정");texts.push_back(L"내 계정");
+ auto rectangle=[&](size_t i){float y=i==0?20.f:i<=pages.size()?76+(i-1)*navigationStep():height-166+(i-pages.size()-1)*40.f;float h=i>0&&i<=pages.size()?navigationTileHeight():34.f;return RECT{LONG(15*dpi),LONG(y*dpi),LONG(49*dpi),LONG((y+h)*dpi)};};
+ if(navTooltip&&!welcome&&texts==navHintTexts){for(size_t i=0;i<navHintTexts.size();i++){TOOLINFOW tool{sizeof tool};tool.hwnd=hwnd;tool.uId=i+1;tool.rect=rectangle(i);SendMessageW(navTooltip,TTM_NEWTOOLRECTW,0,(LPARAM)&tool);}return;}
+ if(navTooltip)DestroyWindow(navTooltip);navTooltip=nullptr;navHintTexts.clear();if(!hwnd||welcome)return;navHintTexts=std::move(texts);
  navTooltip=CreateWindowExW(WS_EX_TOPMOST,TOOLTIPS_CLASSW,nullptr,WS_POPUP|TTS_ALWAYSTIP|TTS_NOPREFIX,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,hwnd,nullptr,GetModuleHandle(nullptr),nullptr);
  SendMessageW(navTooltip,TTM_SETDELAYTIME,TTDT_INITIAL,350);SendMessageW(navTooltip,TTM_SETMAXTIPWIDTH,0,240);SetWindowTheme(navTooltip,L"DarkMode_Explorer",nullptr);
- for(size_t i=0;i<navHintTexts.size();i++){float y=i==0?20.f:i<=pages.size()?76+(i-1)*navigationStep():height-166+(i-pages.size()-1)*40.f;TOOLINFOW tool{sizeof tool};tool.uFlags=TTF_SUBCLASS;tool.hwnd=hwnd;tool.uId=i+1;tool.rect={LONG(15*dpi),LONG(y*dpi),LONG(49*dpi),LONG((y+34)*dpi)};tool.lpszText=navHintTexts[i].data();SendMessageW(navTooltip,TTM_ADDTOOLW,0,(LPARAM)&tool);}
+ for(size_t i=0;i<navHintTexts.size();i++){TOOLINFOW tool{sizeof tool};tool.uFlags=TTF_SUBCLASS;tool.hwnd=hwnd;tool.uId=i+1;tool.rect=rectangle(i);tool.lpszText=navHintTexts[i].data();SendMessageW(navTooltip,TTM_ADDTOOLW,0,(LPARAM)&tool);}
 }
 void paintWelcome(){
  browser={};previewRect={};accountPopover=false;

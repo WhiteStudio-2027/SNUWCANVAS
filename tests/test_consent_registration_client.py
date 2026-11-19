@@ -13,7 +13,7 @@ class ConsentRegistrationTests(unittest.TestCase):
    def do_GET(self):
     nonlocal retry_count
     calls.append(('GET',self.path,self.principal()))
-    if self.path=='/api/version':return self.reply({'min_client_version':'v2.0.0'})
+    if self.path=='/api/version':return self.reply({'min_client_version':'v0.3.0'})
     if self.path=='/api/legal':return self.reply({'version':'consent-test','text':'Consent transport fixture','digest':hashlib.sha256(b'Consent transport fixture').hexdigest()})
     if self.path=='/api/retry':
      retry_count+=1

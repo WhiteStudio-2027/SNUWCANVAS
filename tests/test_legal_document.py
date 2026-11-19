@@ -21,7 +21,7 @@ class LegalDocumentTests(unittest.TestCase):
       body=json.dumps(value).encode();self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
      def do_GET(self):
       calls.append(self.path)
-      if self.path=='/api/version':self.send({'min_client_version':'v3.5.0'})
+      if self.path=='/api/version':self.send({'min_client_version':'v0.3.0'})
       elif self.path=='/api/legal':self.send({'version':'revision-1','text':text,'digest':hashlib.sha256(text.encode()).hexdigest()})
       else:self.send({},404)
      def do_POST(self):

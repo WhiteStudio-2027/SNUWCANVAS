@@ -41,20 +41,31 @@ Write-Output 'Native EXE compiled.'
 $candidate = Join-Path $clientRoot '.build/SNUWCANVAS.next.exe'
 $targetName = if ($CustomServer) {'SNUWCANVAS-custom-server.exe'} else {'SNUWCANVAS.exe'}
 $target = Join-Path $repoRoot $targetName
-if (Test-Path -LiteralPath $target) {
-    # Antivirus/indexer scans can hold a newly tested EXE briefly. Keep the old
-    # binary intact and retry atomically; never terminate a running user app.
-    for ($replaceAttempt = 0; ; $replaceAttempt++) {
-        try {
+$localRoot = Join-Path $repoRoot '.updates/local'
+New-Item -ItemType Directory -Force -Path (Join-Path $localRoot 'backups') | Out-Null
+$updateFolder = Get-Item -LiteralPath (Split-Path $localRoot -Parent) -Force
+$updateFolder.Attributes = $updateFolder.Attributes -bor [System.IO.FileAttributes]::Hidden
+$newHash = (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash.ToLowerInvariant()
+$oldHash = if (Test-Path -LiteralPath $target) { (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() } else { '' }
+$staged = Join-Path $localRoot ($newHash + '.exe')
+[System.IO.File]::Copy($candidate, $staged, $true)
+$descriptor = @{schema=1; release_epoch=2; target=$targetName; version=$manifest.client_version; sha256=$newHash; previous_sha256=$oldHash; size=(Get-Item -LiteralPath $staged).Length}
+$json = $descriptor | ConvertTo-Json
+[System.IO.File]::WriteAllText((Join-Path $localRoot ($newHash + '.json')), $json, [System.Text.UTF8Encoding]::new($false))
+$applied = $false
+try {
+    if ($oldHash -and $oldHash -ne $newHash) {
+        $backup = Join-Path $localRoot ('backups/' + $oldHash + '.exe')
+        if (Test-Path -LiteralPath $backup) {
+            if ((Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash.ToLowerInvariant() -ne $oldHash) { throw 'Previous build backup integrity failed' }
             [System.IO.File]::Replace($candidate, $target, [System.Management.Automation.Language.NullString]::Value)
-            break
-        } catch [System.IO.IOException] {
-            if ($replaceAttempt -ge 19) { throw }
-            Start-Sleep -Milliseconds 250
-        }
-    }
-} else {
-    [System.IO.File]::Move($candidate, $target)
-}
-Write-Output "Updated: $target. User settings preserved."
+        } else { [System.IO.File]::Replace($candidate, $target, $backup) }
+    } elseif (-not $oldHash) { [System.IO.File]::Move($candidate, $target) }
+    $applied = $true
+} catch [System.IO.IOException], [System.UnauthorizedAccessException] { Write-Output 'The running EXE is locked. The validated build is queued for automatic restart.' }
+$ready = Join-Path $localRoot ($targetName + '.ready.json')
+$readyNext = $ready + '.next'
+[System.IO.File]::WriteAllText($readyNext, $json, [System.Text.UTF8Encoding]::new($false))
+if (Test-Path -LiteralPath $ready) { [System.IO.File]::Replace($readyNext, $ready, [System.Management.Automation.Language.NullString]::Value) } else { [System.IO.File]::Move($readyNext, $ready) }
+Write-Output "Build ready: $target. Applied to disk: $applied. Settings preserved; compatible running clients restart when idle."
 # -Publish remains accepted for existing commands; no duplicate ZIP/EXE is created.

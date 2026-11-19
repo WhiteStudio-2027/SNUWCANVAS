@@ -50,7 +50,7 @@ class AccountSessionClientTests(unittest.TestCase):
 
             def do_GET(self):
                 calls.append(('GET', self.path, dict(self.headers), None))
-                if self.path=='/api/version':self.reply({'min_client_version':'v2.0.0'});return
+                if self.path=='/api/version':self.reply({'min_client_version':'v0.3.0'});return
                 if self.path=='/api/legal':self.reply({'version':'session-test','text':'Session test consent','digest':hashlib.sha256(b'Session test consent').hexdigest()});return
                 self.reply({'ok': self.headers.get('Authorization') == 'Bearer ' + 'b' * 32})
 

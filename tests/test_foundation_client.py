@@ -32,7 +32,7 @@ class FoundationClientTests(unittest.TestCase):
             def do_GET(self):
                 calls.append(('GET',self.path,dict(self.headers),None))
                 if self.path=='/api/legal':return self.send_json({'version':'test-1','digest':digest,'text':text})
-                if self.path=='/api/version':return self.send_json({'server_version':'v2.0.0','min_client_version':'v2.0.0','latest_client_version':'v2.0.0'})
+                if self.path=='/api/version':return self.send_json({'server_version':'v2.0.0','min_client_version':'v0.3.0','latest_client_version':'v2.0.0'})
                 if self.path=='/protected':return self.send_json({'ok':True})
                 self.send_error(404)
             def do_POST(self):
