@@ -36,7 +36,7 @@ void detailsPaint(Rect c,Rect g){
  float part=(c.w-28)/5;
  const wchar_t* titles[]={L"도구",L"생성",L"모델",L"참조",L"파일"};
  for(int i=0;i<5;i++)button({c.x+4+i*(part+5),84,part,28},titles[i],[this,i]{openDetails(i);},detailSection==i);
- if(detailSection!=0){float w=(c.w-28)/3;button({c.x+4,g.y-40,w,28},L"권장값 적용",[this]{restoreRecommendedSettings();});button({c.x+12+w,g.y-40,w,28},L"되돌리기",[this]{undoRecommendedSettings();},false,recommendedUndoAvailable());button({c.x+20+w*2,g.y-40,w,28},detailSection==4?L"폴더 선택":detailSection==3?L"참조 구간":L"모델 목록",[this]{if(detailSection==4){auto path=pickFolder(hwnd);if(!path.empty()){sync();store->settings["output"]=utf8(path);rebuild(false);save();scan();}}else if(detailSection==3)editReferenceTiming();else capabilitiesRequest();});return;}
+ if(detailSection!=0){float w=(c.w-28)/3;button({c.x+4,g.y-40,w,28},L"권장값 적용",[this]{restoreRecommendedSettings();});button({c.x+12+w,g.y-40,w,28},detailSection==2?L"LoRA 트리거":L"되돌리기",[this]{if(detailSection==2)showLoraTrigger();else undoRecommendedSettings();},false,detailSection==2||recommendedUndoAvailable());button({c.x+20+w*2,g.y-40,w,28},detailSection==4?L"폴더 선택":detailSection==3?L"참조 구간":L"모델 목록",[this]{if(detailSection==4){auto path=pickFolder(hwnd);if(!path.empty()){sync();store->settings["output"]=utf8(path);rebuild(false);save();scan();}}else if(detailSection==3)editReferenceTiming();else capabilitiesRequest();});return;}
  std::vector<std::pair<std::wstring,std::function<void()>>> actions={
   {L"이미지 보정·확대",[this]{setPage(5);}},{L"후보 만들기·비교",[this]{auditionMenu();}},
   {L"페이지·컷 구성",[this]{storyboardMenu();}},{L"좋은 시드 추천",[this]{friendlySeedMenu();}},

@@ -10,6 +10,7 @@ class ModelManagerTests(unittest.TestCase):
    def send(self,body):
     raw=json.dumps(body).encode();self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
    def do_GET(self):
+    if self.path=='/capabilities':self.send({'choices':{},'installed_models':{}});return
     if not self.path.startswith('/api/models/requests?'):errors.append(self.path)
     row=dict(state['row']) if state['row'] else None
     if row and 'poison=true' in self.path:row['owner']='other-owner'
