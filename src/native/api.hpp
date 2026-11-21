@@ -191,7 +191,7 @@ public:
   else {if(t.state.contains("_entity_expectations")){auto checked=request("POST",joinUrl(base,"/learning/profiles/resolve"),key,json{{"sections",wirePromptDrafts(t.state)},{"profile_ids",selectedProfiles(t.cfg)},{"pipeline",modelId(t.cfg)},{"previous",t.state["_entity_expectations"]},{"verify",true}}.dump(),"application/json",&cancel,65536,10000);if(checked.code==429||!flag(checked.object(),"verified"))throw std::runtime_error("컷의 항목 기준을 갱신하거나 서버 버전을 확인하세요.");}auto form=generationForm(t.cfg,t.state,t.requestId);initial=request("POST",joinUrl(base,"/jobs"),key,form.finish(),form.type(),nullptr).object();}
   auto jid=str(initial,"id");if(jid.empty())throw std::runtime_error("서버가 작업 ID를 반환하지 않았습니다.");auditionEvent(t,"audition_job",{{"job",jid}});repairEvent(t,"repair_job",{{"job",jid}});{std::lock_guard lock(mutex);jobId=jid;jobApi=base;jobKey=key;}if(t.editing)event({"settings",t.project,"",{{"editing_session",session},{"editing_job",jid},{"editing_request",t.requestId}}});
   size_t received=0;bool terminal=false;std::string pendingLine;
-  auto consume=[&](const std::string& bytes){pendingLine+=bytes;if(pendingLine.size()>16*1024*1024)throw std::runtime_error("상태 응답 크기 제한 초과");size_t end;
+  auto consume=[&](const std::string& bytes){pendingLine+=bytes;if(pendingLine.size()>64*1024*1024)throw std::runtime_error("상태 응답 크기 제한 초과");size_t end;
    while((end=pendingLine.find('\n'))!=std::string::npos){auto line=pendingLine.substr(0,end);pendingLine.erase(0,end+1);if(line.empty()||line=="\r")continue;
     auto j=json::parse(line);auto status=str(j,"state");if(!str(t.cfg,"_audition_run").empty())j["_audition_run"]=t.cfg["_audition_run"];event({"progress",t.project,status,j});auto results=j.value("results",json::array());
     if(!t.editing)for(size_t i=received;i<results.size();++i){download(t,results[i],str(t.cfg,"version","v9")+"_");received++;}
@@ -200,7 +200,7 @@ public:
     else if(status!="queued"&&status!="running")throw std::runtime_error("알 수 없는 서버 작업 상태: "+status);
    }
   };
-  auto stream=request("GET",joinUrl(base,"/jobs/"+jid+"/events"),key,"","application/json",&cancel,256*1024*1024,seconds*1000,consume);
+  auto stream=request("GET",joinUrl(base,"/jobs/"+jid+"/events"),key,"","application/json",&cancel,size_t(1)<<40,seconds*1000,consume);
   if(stream.code==429)throw std::runtime_error("서버 요청 제한 · 잠시 후 다시 생성해 주세요.");
   if(!terminal)throw std::runtime_error("서버 상태 연결이 완료 전에 끊겼습니다. 진행 상태를 반복 조회하지 않습니다.");
 
