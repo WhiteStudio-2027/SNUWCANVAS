@@ -101,6 +101,6 @@ void learningWorkspacePaint(Rect c,Rect g){
  // A scrolled action may never receive clicks outside the content viewport.
  for(size_t i=first;i<buttons.size();i++){auto& r=buttons[i].rect;float bottom=std::min(r.y+r.h,clip.y+clip.h);r.y=std::max(r.y,clip.y);r.h=std::max(0.f,bottom-r.y);if(r.h<=0){r={-10,-10,0,0};buttons[i].enabled=false;}}
  renderer.target->PopAxisAlignedClip();
- float maximum=std::max(0.f,layout.height-clip.h);if(maximum>0){float thumb=std::max(22.f,clip.h*clip.h/layout.height);renderer.box({clip.x+clip.w+5,clip.y,4,clip.h},0x24252a,0,1);renderer.box({clip.x+clip.w+5,clip.y+(clip.h-thumb)*formScroll/maximum,4,thumb},0x646b80,0,1);}
+ float maximum=std::max(0.f,layout.height-clip.h);if(maximum>0){float thumb=std::max(22.f,clip.h*clip.h/layout.height);scrollThumb({clip.x+clip.w+2,clip.y,12,clip.h},clip.y+(clip.h-thumb)*formScroll/maximum,thumb,4);}
  renderer.line(c.x+10,g.y-31,c.x+c.w-10,g.y-31,0x34353c);label(learningBusy&&!referenceUploadRunning?L"서버 처리 중…":learningNote,{c.x+12,g.y-28,c.w-24,22},false,0xaab6dd,11);
 }

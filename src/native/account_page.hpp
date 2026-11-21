@@ -28,5 +28,5 @@ void accountPage(Rect c){
  auto total=quotaUsage.value("total",json());label(total.is_number()?L"남은 생성  ·  "+std::to_wstring(quotaUsage.value("remaining",int64_t(0)))+L" / "+std::to_wstring(total.get<int64_t>())+L"장":L"사용 한도  ·  무제한",{c.x+18,y(506),c.w-36,26},false,0xccccd0,12);
  bool ready=!accountWorkspaceBusy();action(560,c.x+18,c.w-36,L"로그아웃",[this]{featureRequest("account_logout","POST",accountLogoutPath(false));},ready);
  action(606,c.x+18,c.w-36,L"모든 기기에서 로그아웃",[this]{if(MessageBoxW(hwnd,L"모든 기기의 로그인 세션을 종료할까요?",L"로그아웃",MB_YESNO|MB_ICONQUESTION)==IDYES)featureRequest("account_logout","POST",accountLogoutPath(true));},ready);
- renderer.target->PopAxisAlignedClip();if(accountScrollMax()>0){float thumb=area.h*area.h/(area.h+accountScrollMax());renderer.box({area.x+area.w-3,area.y+(area.h-thumb)*accountScroll/accountScrollMax(),3,thumb},0x707078,0,1);}
+ renderer.target->PopAxisAlignedClip();if(accountScrollMax()>0){float thumb=area.h*area.h/(area.h+accountScrollMax());scrollThumb({area.x+area.w-12,area.y,12,area.h},area.y+(area.h-thumb)*accountScroll/accountScrollMax(),thumb,3);}
 }
