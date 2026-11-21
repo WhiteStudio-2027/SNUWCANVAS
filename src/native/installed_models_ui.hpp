@@ -7,6 +7,13 @@ void selectedAssetChanged(const std::string& key){
  if(!inventory.contains(key)||!inventory[key].is_array())return;
  for(auto& row:inventory[key])if(row.is_object()&&str(row,"name")==str(cfg,key)){
   auto family=str(row,"family","unknown");
+  if(key=="diffusion_model"&&family=="flux2"){
+   auto previous=modelId(cfg);auto id=previous;if(id!="flux2_klein"&&id!="flux2_klein_base")cfg["workflow_profile"]="문장·실사 · FLUX 빠르게";
+   applyModelSettings(cfg,previous!=modelId(cfg)&&flag(cfg,"model_auto_settings",true));
+  }
+  if(key=="checkpoint"&&family=="pixel"){
+   auto previous=modelId(cfg);cfg["workflow_profile"]="픽셀아트";applyModelSettings(cfg,previous!=modelId(cfg)&&flag(cfg,"model_auto_settings",true));
+  }
   if(key=="checkpoint"&&(family=="illustrious"||family=="animagine"||family=="sdxl")){
    auto previous=modelId(cfg);cfg["workflow_profile"]=family=="illustrious"?"애니 · Illustrious XL":"기존 SDXL";
    applyModelSettings(cfg,previous!=modelId(cfg)&&flag(cfg,"model_auto_settings",true));

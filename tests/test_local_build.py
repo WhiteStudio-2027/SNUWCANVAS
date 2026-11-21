@@ -2,7 +2,9 @@
 from pathlib import Path
 import ctypes
 import hashlib
+import base64
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -10,8 +12,9 @@ import time
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
-EXE=ROOT.parent/'SNUWCANVAS.exe'
+EXE=Path(os.environ.get('LOCAL_BUILD_TEST_EXE') or ROOT.parent/'SNUWCANVAS.exe')
 PY_NO_WINDOW=getattr(subprocess,'CREATE_NO_WINDOW',0)
+SIGN_SCRIPT=ROOT/'tools'/'sign_local_build.ps1'
 
 class LocalBuildTests(unittest.TestCase):
  @classmethod
@@ -32,6 +35,12 @@ END
    binary=cls.assets/(name+'.exe')
    result=subprocess.run(['C:/msys64/ucrt64/bin/g++.exe','-std=c++20','-O1','-static','-municode','-finput-charset=UTF-8',f'-DSTUB_NEW={new}','-I','src/native','tests/local_build_stub.cpp',str(obj.relative_to(ROOT)),'-o',str(binary.relative_to(ROOT)),'-lcrypt32','-lbcrypt','-lshell32','-lole32','-lwinhttp','-luuid','-lversion'],cwd=ROOT,capture_output=True,text=True,timeout=120)
    if result.returncode:raise RuntimeError(result.stderr)
+ def sign(self,descriptor):
+  """Signed envelope text for a descriptor, made with the machine's local build key."""
+  with tempfile.TemporaryDirectory(dir=self.assets) as path:
+   payload=Path(path)/'payload.json';out=Path(path)/'envelope.json';payload.write_text(json.dumps(descriptor,separators=(',',':')))
+   subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(SIGN_SCRIPT),'-PayloadPath',str(payload),'-OutPath',str(out)],check=True,capture_output=True,timeout=60)
+   return out.read_text()
  @classmethod
  def tearDownClass(cls):cls.temp.cleanup()
  def prepare(self,folder):
@@ -39,9 +48,10 @@ END
   target=folder/'SNUWCANVAS.exe';shutil.copyfile(self.assets/'old.exe',target)
   new=(self.assets/'new.exe').read_bytes();digest=hashlib.sha256(new).hexdigest()
   previous=hashlib.sha256(target.read_bytes()).hexdigest()
-  descriptor={'schema':1,'release_epoch':2,'target':target.name,'version':'v0.3.0','sha256':digest,'previous_sha256':previous,'size':len(new)}
+  descriptor={'schema':2,'release_epoch':2,'build_id':'b'*32,'built_at':int(time.time()),'target':target.name,'version':'v0.3.0','sha256':digest,'previous_sha256':previous,'size':len(new)}
   (local/(digest+'.exe')).write_bytes(new)
-  for name in [digest+'.json',target.name+'.ready.json']:(local/name).write_text(json.dumps(descriptor))
+  envelope=self.sign(descriptor)
+  for name in [digest+'.json',target.name+'.ready.json']:(local/name).write_text(envelope)
   helper=local/'helper.exe';shutil.copyfile(EXE,helper)
   return target,local,descriptor,helper
  def run_helper(self,folder,helper,build,parent=0):
@@ -57,7 +67,7 @@ END
     gate.write_text('exit');parent.wait(5);self.assertEqual(worker.wait(15),0)
     self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),build['sha256'])
     self.assertEqual(hashlib.sha256((local/'backups'/(build['previous_sha256']+'.exe')).read_bytes()).hexdigest(),build['previous_sha256'])
-    self.assertEqual(json.loads((local/(target.name+'.status.json')).read_text())['state'],'healthy')
+    status=json.loads((local/(target.name+'.status.json')).read_text());self.assertEqual(status['state'],'healthy');self.assertEqual(status['build_id'],build['build_id'])
    finally:
     gate.write_text('exit');parent.wait(5)
     if worker.poll() is None:worker.wait(15)
@@ -74,6 +84,20 @@ END
    folder=Path(path);target,local,build,helper=self.prepare(folder);(local/(build['sha256']+'.exe')).write_bytes(b'MZ tampered')
    worker=self.run_helper(folder,helper,build);self.assertEqual(worker.wait(15),1)
    self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),build['previous_sha256'])
+ def test_unsigned_or_forged_descriptor_keeps_current_executable(self):
+  def attempt(name,mutate):
+   with tempfile.TemporaryDirectory(dir=self.assets) as path:
+    folder=Path(path);target,local,build,helper=self.prepare(folder);mutate(local,build)
+    worker=self.run_helper(folder,helper,build);self.assertEqual(worker.wait(15),1,name)
+    self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),build['previous_sha256'],name)
+  def plain(local,build):(local/(build['sha256']+'.json')).write_text(json.dumps(build))
+  def edited(local,build):
+   envelope=json.loads((local/(build['sha256']+'.json')).read_text());data=json.loads(base64.b64decode(envelope['payload']));data['version']='v9.9.9'
+   envelope['payload']=base64.b64encode(json.dumps(data,separators=(',',':')).encode()).decode();(local/(build['sha256']+'.json')).write_text(json.dumps(envelope))
+  def old_schema(local,build):(local/(build['sha256']+'.json')).write_text(self.sign({**build,'schema':1}))
+  def no_signature(local,build):
+   envelope=json.loads((local/(build['sha256']+'.json')).read_text());envelope['signature']='';(local/(build['sha256']+'.json')).write_text(json.dumps(envelope))
+  for name,mutate in [('plain json',plain),('edited payload',edited),('old schema',old_schema),('empty signature',no_signature)]:attempt(name,mutate)
  def test_real_app_watcher_defers_busy_saves_draft_and_restarts(self):
   with tempfile.TemporaryDirectory(dir=self.assets) as path:
    folder=Path(path);target,local,build,helper=self.prepare(folder)

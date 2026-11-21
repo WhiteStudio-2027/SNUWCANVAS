@@ -44,12 +44,35 @@ std::vector<std::pair<int,std::wstring>> navigationPages()const{
 }
 float navigationStep()const{return std::clamp((height-324)/std::max(1.f,float(navigationPages().size()-1)),24.f,36.f);}
 float navigationTileHeight()const{return std::min(34.f,navigationStep()-2);}
-void openNavigation(int id){if(id==16)auditionMenu();else if(id==17)storyboardMenu();else if(id==18)friendlySeedMenu();else if(id==4)openDetails(1);else{setPage(id);if(id==11&&!developerBusy)developerFetch();}}
-int navigationGlyph(int id)const{switch(id){case 0:return 0;case 1:return 1;case 2:return 2;case 3:return 9;case 4:return 14;case 5:return 7;case 7:return 10;case 8:return 8;case 9:return 1;case 11:return 4;case 14:return 15;case 15:return 6;case 16:return 6;case 17:return 3;case 18:return 0;default:return 10;}}
+void openNavigation(int id){if(id==18)friendlySeedMenu();else if(id==4)openDetails(1);else{setPage(id);if(id==11&&!developerBusy)developerFetch();}}
+// Rail glyphs: one distinct picture per feature so the rail reads without tooltips.
+void featureIcon(Rect r,int kind,unsigned tint){
+ float x=r.x,y=r.y,w=r.w,h=r.h;
+ auto line=[&](float a,float b,float c,float d){renderer.line(x+a*w,y+b*h,x+c*w,y+d*h,tint,1.4f);};
+ auto path=[&](std::initializer_list<float> v,bool closed){std::vector<float> p(v);for(size_t i=0;i+3<p.size();i+=2)line(p[i],p[i+1],p[i+2],p[i+3]);if(closed&&p.size()>=4)line(p[p.size()-2],p[p.size()-1],p[0],p[1]);};
+ auto box=[&](float a,float b,float c,float d){path({a,b,c,b,c,d,a,d},true);};
+ auto circle=[&](float cx,float cy,float radius){renderer.brush->SetColor(color(tint));renderer.target->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(x+w*cx,y+h*cy),w*radius,h*radius),renderer.brush.Get(),1.4f);};
+ switch(kind){
+  case 20:path({.45f,.13f,.55f,.45f,.87f,.55f,.55f,.65f,.45f,.97f,.35f,.65f,.03f,.55f,.35f,.45f},true);line(.84f,.03f,.84f,.27f);line(.72f,.15f,.96f,.15f);break; // generate: sparkle
+  case 21:box(.06f,.14f,.94f,.86f);circle(.68f,.36f,.09f);path({.06f,.8f,.36f,.48f,.58f,.72f,.7f,.6f,.94f,.82f},false);break; // reference picture
+  case 22:box(.08f,.5f,.5f,.92f);line(.4f,.6f,.9f,.1f);line(.9f,.1f,.62f,.1f);line(.9f,.1f,.9f,.38f);break; // size: resize arrow
+  case 23:circle(.42f,.42f,.32f);line(.65f,.65f,.94f,.94f);line(.42f,.27f,.42f,.57f);line(.27f,.42f,.57f,.42f);break; // enhance: zoom in
+  case 24:box(.04f,.2f,.46f,.8f);box(.54f,.2f,.96f,.8f);path({.62f,.52f,.72f,.63f,.88f,.4f},false);break; // compare candidates
+  case 25:box(.06f,.1f,.94f,.9f);line(.06f,.5f,.94f,.5f);line(.42f,.1f,.42f,.5f);line(.62f,.5f,.62f,.9f);break; // comic panels
+  case 26:line(.5f,.95f,.5f,.45f);path({.5f,.64f,.2f,.52f,.1f,.28f,.38f,.36f},true);path({.5f,.5f,.78f,.38f,.92f,.12f,.62f,.18f},true);line(.25f,.95f,.75f,.95f);break; // seed: sprout
+  case 27:path({.22f,.24f,.22f,.08f,.94f,.08f,.94f,.66f,.78f,.66f},false);box(.06f,.24f,.78f,.92f);path({.06f,.86f,.3f,.6f,.48f,.78f,.6f,.68f,.78f,.86f},false);break; // server gallery
+  case 28:path({.5f,.05f,.92f,.28f,.92f,.72f,.5f,.95f,.08f,.72f,.08f,.28f},true);path({.08f,.28f,.5f,.5f,.92f,.28f},false);line(.5f,.5f,.5f,.95f);break; // model: cube
+  case 29:circle(.38f,.34f,.15f);path({.1f,.92f,.12f,.74f,.25f,.62f,.51f,.62f,.64f,.74f,.66f,.92f},false);circle(.72f,.26f,.12f);path({.68f,.5f,.84f,.5f,.94f,.62f,.94f,.8f},false);break; // consistency: same character
+  case 30:path({.5f,.15f,.95f,.35f,.5f,.55f,.05f,.35f},true);path({.25f,.45f,.25f,.72f,.5f,.84f,.75f,.72f,.75f,.45f},false);line(.95f,.35f,.95f,.66f);break; // training: cap
+  case 31:{circle(.5f,.26f,.13f);path({.36f,.66f,.36f,.48f,.64f,.48f,.64f,.66f},false);float px=0,py=0;for(int i=0;i<=12;i++){float a=(-150.f+i*25.f)*3.14159265f/180;float qx=.5f+.44f*std::cos(a),qy=.72f+.2f*std::sin(a);if(i)line(px,py,qx,qy);px=qx;py=qy;}line(px,py,px+.02f,py-.16f);line(px,py,px+.16f,py+.04f);break;} // angles: orbit
+  case 32:box(.06f,.12f,.94f,.88f);line(.36f,.12f,.36f,.88f);line(.14f,.32f,.28f,.32f);line(.14f,.48f,.28f,.48f);line(.14f,.64f,.28f,.64f);break; // project list panel
+ }
+}
+int navigationGlyph(int id)const{switch(id){case 0:return 20;case 1:return 21;case 2:return 22;case 3:return 9;case 4:return 2;case 5:return 23;case 7:return 29;case 8:return 30;case 9:return 27;case 11:return 15;case 14:return 28;case 15:return 31;case 16:return 24;case 17:return 25;case 18:return 26;default:return 10;}}
 void navigationPaint(){
  renderer.box({8,8,48,height-16},0x19191a,0x303033,10);
  auto tile=[&](Rect r,int glyph,bool active,std::function<void()> command){renderer.box(r,active?0x34343b:0x19191a,0,8);icon({r.x+(r.w-16)/2,r.y+(r.h-16)/2,16,16},glyph,active?0xb5c2ff:0x999eaf);buttons.push_back({r,L"",command,false});};
- tile({15,20,34,34},11,projectsOpen,[this]{save();projectsOpen=!projectsOpen;leftWidth=projectsOpen?260.f:64.f;autoWorkspace=true;rebuild(false);});
+ tile({15,20,34,34},32,projectsOpen,[this]{toggleProjectPane();});
  int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*navigationStep(),34,navigationTileHeight()},navigationGlyph(id),id==page,[this,id]{openNavigation(id);});row++;}
  float y=height-166;tile({15,y,34,34},12,false,[this]{save();status=L"저장 완료";});tile({15,y+40,34,34},11,false,[this]{projectMenu();});tile({15,y+80,34,34},14,page==10,[this]{setPage(10);});tile({15,y+120,34,34},5,page==13,[this]{accountMenu();});
 }
