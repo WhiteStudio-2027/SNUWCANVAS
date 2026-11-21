@@ -38,6 +38,7 @@ inline const std::vector<SettingDef>& settingRegistry(){
   // 0 일반
   action("content_mode",L"하드코어 모드",L"민감 콘텐츠 생성과 갤러리를 허용합니다. 변경하려면 인증이 필요합니다.",0,L"콘텐츠");
   toggle("auto_update",L"자동 업데이트 확인",L"시작할 때 새 빌드가 있는지 확인합니다.",0,L"업데이트");
+  toggle("background_run",L"백그라운드에서 생성 계속",L"창을 닫아도 예약한 이미지 생성을 이어서 진행하고, 끝나면 알림 후 자동 종료합니다.",0,L"백그라운드");
   toggle("splash_minimum_enabled",L"시작 화면 최소 2초 표시",L"시작 화면을 최소 2초 동안 보여 줍니다.",0,L"시작");
   // 1 생성 기본값
   num("count",L"생성 장수",L"한 번에 만들 이미지 수",1,L"기본 파라미터",true);

@@ -199,6 +199,7 @@ public:
 #include "studio_navigation.hpp"
 #include "account_page.hpp"
 #include "settings_ui.hpp"
+#include "background_run.hpp"
 #include "developer_ui.hpp"
 #include "model_hints.hpp"
 #include "model_manager.hpp"
