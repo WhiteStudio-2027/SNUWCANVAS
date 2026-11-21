@@ -44,7 +44,7 @@ std::vector<std::pair<int,std::wstring>> navigationPages()const{
 }
 float navigationStep()const{return std::clamp((height-324)/std::max(1.f,float(navigationPages().size()-1)),24.f,36.f);}
 float navigationTileHeight()const{return std::min(34.f,navigationStep()-2);}
-void openNavigation(int id){if(id==18)friendlySeedMenu();else if(id==4)openDetails(1);else{setPage(id);if(id==11&&!developerBusy)developerFetch();}}
+void openNavigation(int id){if(id==18)friendlySeedMenu();else if(id==4)openSettings(2);else{setPage(id);if(id==11&&!developerBusy)developerFetch();}}
 // Rail glyphs: one distinct picture per feature so the rail reads without tooltips.
 void featureIcon(Rect r,int kind,unsigned tint){
  float x=r.x,y=r.y,w=r.w,h=r.h;
@@ -66,6 +66,24 @@ void featureIcon(Rect r,int kind,unsigned tint){
   case 30:path({.5f,.15f,.95f,.35f,.5f,.55f,.05f,.35f},true);path({.25f,.45f,.25f,.72f,.5f,.84f,.75f,.72f,.75f,.45f},false);line(.95f,.35f,.95f,.66f);break; // training: cap
   case 31:{circle(.5f,.26f,.13f);path({.36f,.66f,.36f,.48f,.64f,.48f,.64f,.66f},false);float px=0,py=0;for(int i=0;i<=12;i++){float a=(-150.f+i*25.f)*3.14159265f/180;float qx=.5f+.44f*std::cos(a),qy=.72f+.2f*std::sin(a);if(i)line(px,py,qx,qy);px=qx;py=qy;}line(px,py,px+.02f,py-.16f);line(px,py,px+.16f,py+.04f);break;} // angles: orbit
   case 32:box(.06f,.12f,.94f,.88f);line(.36f,.12f,.36f,.88f);line(.14f,.32f,.28f,.32f);line(.14f,.48f,.28f,.48f);line(.14f,.64f,.28f,.64f);break; // project list panel
+  case 33:line(.5f,.06f,.5f,.62f);path({.28f,.42f,.5f,.64f,.72f,.42f},false);path({.1f,.66f,.1f,.92f,.9f,.92f,.9f,.66f},false);break; // save: download into tray
+  case 34:path({.06f,.84f,.06f,.2f,.36f,.2f,.5f,.34f,.94f,.34f,.94f,.84f},true);break; // open folder
+  case 35:circle(.18f,.5f,.07f);circle(.5f,.5f,.07f);circle(.82f,.5f,.07f);break; // more: three dots
+  case 36:line(.9f,.5f,.14f,.5f);path({.42f,.2f,.14f,.5f,.42f,.8f},false);break; // previous
+  case 37:line(.1f,.5f,.86f,.5f);path({.58f,.2f,.86f,.5f,.58f,.8f},false);break; // next
+  case 38:circle(.5f,.5f,.42f);line(.08f,.5f,.92f,.5f);path({.5f,.08f,.34f,.3f,.3f,.5f,.34f,.7f,.5f,.92f},false);path({.5f,.08f,.66f,.3f,.7f,.5f,.66f,.7f,.5f,.92f},false);break; // url: globe
+  case 39:line(.12f,.25f,.88f,.25f);path({.4f,.25f,.4f,.1f,.6f,.1f,.6f,.25f},false);path({.22f,.25f,.28f,.92f,.72f,.92f,.78f,.25f},false);line(.42f,.42f,.43f,.78f);line(.58f,.42f,.57f,.78f);break; // delete: trash
+  case 40:circle(.5f,.5f,.2f);circle(.5f,.5f,.34f);line(.5f,.06f,.5f,.16f);line(.5f,.84f,.5f,.94f);line(.06f,.5f,.16f,.5f);line(.84f,.5f,.94f,.5f);line(.19f,.19f,.26f,.26f);line(.81f,.19f,.74f,.26f);line(.19f,.81f,.26f,.74f);line(.81f,.81f,.74f,.74f);break; // general: gear
+  case 41:path({.12f,.88f,.52f,.48f},false);path({.52f,.48f,.68f,.32f,.9f,.1f},false);line(.3f,.1f,.3f,.3f);line(.2f,.2f,.4f,.2f);circle(.8f,.76f,.06f);break; // generation: brush + sparkle
+  case 42:path({.5f,.08f,.88f,.28f,.88f,.72f,.5f,.92f,.12f,.72f,.12f,.28f},true);path({.12f,.28f,.5f,.48f,.88f,.28f},false);line(.5f,.48f,.5f,.92f);break; // model: cube
+  case 43:circle(.36f,.32f,.15f);path({.08f,.9f,.1f,.64f,.36f,.56f,.62f,.64f,.64f,.9f},false);line(.82f,.18f,.82f,.42f);line(.7f,.3f,.94f,.3f);break; // reference: person + add
+  case 44:path({.06f,.84f,.06f,.2f,.36f,.2f,.5f,.34f,.94f,.34f,.94f,.84f},true);line(.5f,.46f,.5f,.72f);path({.4f,.62f,.5f,.72f,.6f,.62f},false);break; // storage: folder + arrow
+  case 45:path({.1f,.86f,.3f,.82f,.44f,.54f,.58f,.22f,.9f,.14f},false);circle(.1f,.86f,.05f);circle(.9f,.14f,.05f);break; // motion: easing curve
+  case 46:line(.36f,.08f,.36f,.34f);line(.64f,.08f,.64f,.34f);path({.22f,.34f,.78f,.34f,.78f,.54f,.5f,.72f,.22f,.54f},true);line(.5f,.72f,.5f,.92f);break; // connection: plug
+  case 47:circle(.42f,.42f,.28f);line(.63f,.63f,.92f,.92f);break; // search
+  case 48:path({.84f,.5f,.8f,.3f,.64f,.16f,.44f,.14f,.26f,.26f,.16f,.44f,.2f,.66f,.36f,.82f,.58f,.86f,.78f,.76f},false);path({.92f,.26f,.84f,.5f,.62f,.4f},false);break; // reset: circular arrow
+  case 49:path({.5f,.1f,.92f,.86f,.08f,.86f},true);line(.5f,.38f,.5f,.62f);circle(.5f,.74f,.03f);break; // warning
+  case 50:line(.2f,.2f,.8f,.8f);line(.8f,.2f,.2f,.8f);break; // close
  }
 }
 int navigationGlyph(int id)const{switch(id){case 0:return 20;case 1:return 21;case 2:return 22;case 3:return 9;case 4:return 2;case 5:return 23;case 7:return 29;case 8:return 30;case 9:return 27;case 11:return 15;case 14:return 28;case 15:return 31;case 16:return 24;case 17:return 25;case 18:return 26;default:return 10;}}
@@ -74,7 +92,7 @@ void navigationPaint(){
  auto tile=[&](Rect r,int glyph,bool active,std::function<void()> command){renderer.box(r,active?0x34343b:0x19191a,0,8);icon({r.x+(r.w-16)/2,r.y+(r.h-16)/2,16,16},glyph,active?0xb5c2ff:0x999eaf);buttons.push_back({r,L"",command,false});};
  tile({15,20,34,34},32,projectsOpen,[this]{toggleProjectPane();});
  int row=0;for(auto& [id,name]:navigationPages()){tile({15,76+row*navigationStep(),34,navigationTileHeight()},navigationGlyph(id),id==page,[this,id]{openNavigation(id);});row++;}
- float y=height-166;tile({15,y,34,34},12,false,[this]{save();status=L"저장 완료";});tile({15,y+40,34,34},11,false,[this]{projectMenu();});tile({15,y+80,34,34},14,page==10,[this]{setPage(10);});tile({15,y+120,34,34},5,page==13,[this]{accountMenu();});
+ float y=height-166;tile({15,y,34,34},12,false,[this]{save();status=L"저장 완료";});tile({15,y+40,34,34},11,false,[this]{projectMenu();});tile({15,y+80,34,34},14,page==10||settingsOpen,[this]{openSettings(0);});tile({15,y+120,34,34},5,page==13,[this]{accountMenu();});
 }
 void updateNavigationTips(){
  auto pages=navigationPages();std::vector<std::wstring> texts{L"프로젝트 목록"};for(auto& p:pages)texts.push_back(p.second);texts.push_back(L"프로젝트 저장");texts.push_back(L"프로젝트 관리");texts.push_back(L"전체 설정");texts.push_back(L"내 계정");

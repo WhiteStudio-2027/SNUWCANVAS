@@ -35,7 +35,7 @@ BEGIN
    VALUE "FileDescription", "SNUWCANVAS"
    VALUE "ProductName", "SNUWCANVAS"
    VALUE "CompanyName", "White Studio"
-   VALUE "LegalCopyright", "Copyright (C) White Studio. SNUWCANVAS."
+   VALUE "LegalCopyright", "Copyright (C) White Studio. SNUWCANVAS. All rights reserved."
    VALUE "FileVersion", SNUW_VERSION_STRING
    VALUE "ProductVersion", SNUW_DISPLAY_VERSION
    VALUE "OriginalFilename", "SNUWCANVAS.exe"

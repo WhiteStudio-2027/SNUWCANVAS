@@ -25,7 +25,7 @@ void accountOverlay(){
  label(wide(str(accountProfile,"email")),{panel.x+52,panel.y+11,182,24},true,0xe5e5e7,11);
  label(wide(str(accountProfile,"role")),{panel.x+52,panel.y+35,182,18},false,0x9ca7bf,10);renderer.line(panel.x+14,panel.y+65,panel.x+236,panel.y+65,0x3b4254);
  bool ready=!accountWorkspaceBusy();
- button({panel.x+12,panel.y+77,226,32},L"전체 설정",[this]{accountPopover=false;setPage(10);});
+ button({panel.x+12,panel.y+77,226,32},L"전체 설정",[this]{accountPopover=false;openSettings(0);});
  button({panel.x+12,panel.y+119,226,32},L"로그아웃",[this]{accountPopover=false;featureRequest("account_logout","POST",accountLogoutPath(false));},false,ready);
  button({panel.x+12,panel.y+161,226,32},L"모든 기기에서 로그아웃",[this]{accountPopover=false;if(MessageBoxW(hwnd,L"이 계정의 모든 로그인 세션을 종료할까요?",L"모든 기기에서 로그아웃",MB_YESNO|MB_ICONQUESTION)==IDYES)featureRequest("account_logout","POST",accountLogoutPath(true));},false,ready);
 }

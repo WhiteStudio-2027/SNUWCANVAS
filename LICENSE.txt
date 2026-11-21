@@ -1,0 +1,21 @@
+Copyright (c) White Studio. All rights reserved.
+
+SNUWCANVAS (the client application, its source code, user interface, and brand assets)
+is the property of White Studio. All rights are reserved by White Studio.
+
+No part of this software may be copied, distributed, modified, reverse engineered,
+or used to create derivative works without prior written permission from White Studio.
+
+Third-party components (fonts, JSON library, and others) are covered by their own
+licenses, which remain bundled with this software.
+
+---
+
+Copyright (c) White Studio. 모든 권리 보유.
+
+SNUWCANVAS(클라이언트 프로그램, 소스 코드, 화면 구성, 브랜드 자산)에 대한 모든 권리는
+White Studio에 있습니다. White Studio의 사전 서면 허가 없이 이 소프트웨어를 복제, 배포,
+수정, 역설계하거나 이를 바탕으로 한 파생 저작물을 만들 수 없습니다.
+
+글꼴, JSON 라이브러리 등 제3자 구성요소는 각자의 라이선스를 따르며, 해당 라이선스 문서는
+소프트웨어와 함께 계속 포함됩니다.
