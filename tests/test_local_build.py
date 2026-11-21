@@ -54,8 +54,8 @@ END
   for name in [digest+'.json',target.name+'.ready.json']:(local/name).write_text(envelope)
   helper=local/'helper.exe';shutil.copyfile(EXE,helper)
   return target,local,descriptor,helper
- def run_helper(self,folder,helper,build,parent=0):
-  return subprocess.Popen([str(helper),'--apply-local-build',str(folder),str(parent),build['sha256'],build['target']],creationflags=PY_NO_WINDOW)
+ def run_helper(self,folder,helper,build,parent=0,env=None):
+  return subprocess.Popen([str(helper),'--apply-local-build',str(folder),str(parent),build['sha256'],build['target']],creationflags=PY_NO_WINDOW,env=env)
  def test_waits_for_running_parent_and_preserves_backup(self):
   with tempfile.TemporaryDirectory(dir=self.assets) as path:
    folder=Path(path);target,local,build,helper=self.prepare(folder);gate=folder/'exit-gate'
@@ -83,6 +83,28 @@ END
   with tempfile.TemporaryDirectory(dir=self.assets) as path:
    folder=Path(path);target,local,build,helper=self.prepare(folder);(local/(build['sha256']+'.exe')).write_bytes(b'MZ tampered')
    worker=self.run_helper(folder,helper,build);self.assertEqual(worker.wait(15),1)
+   self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),build['previous_sha256'])
+ def test_rollback_failure_is_recorded_and_exits_with_code_3(self):
+  with tempfile.TemporaryDirectory(dir=self.assets) as path:
+   folder=Path(path);target,local,build,helper=self.prepare(folder);(folder/'break-backup').write_text('x')
+   worker=self.run_helper(folder,helper,build);self.assertEqual(worker.wait(20),3)
+   status=json.loads((local/(target.name+'.status.json')).read_text());self.assertEqual(status['state'],'rollback_failed');self.assertTrue(status['error'])
+   self.assertIn('rollback failed',(local/'apply.log').read_text())
+ def test_running_new_app_without_health_signal_is_neither_killed_nor_replaced(self):
+  with tempfile.TemporaryDirectory(dir=self.assets) as path:
+   folder=Path(path);target,local,build,helper=self.prepare(folder);(folder/'hang-new').write_text('x');gate=folder/'hang-gate'
+   try:
+    worker=self.run_helper(folder,helper,build,env={**os.environ,'SNUW_LOCAL_BUILD_HEALTH_MS':'1500'});self.assertEqual(worker.wait(20),1)
+    status=json.loads((local/(target.name+'.status.json')).read_text());self.assertEqual(status['state'],'health_unconfirmed')
+    self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),build['sha256'])  # the new build stays; no rollback while it runs
+    self.assertFalse((folder/'booted.json').exists())  # and the old app was not started next to it
+   finally:gate.write_text('exit');time.sleep(.5)
+ def test_older_build_than_last_applied_is_not_queued(self):
+  with tempfile.TemporaryDirectory(dir=self.assets) as path:
+   folder=Path(path);target,local,build,helper=self.prepare(folder)
+   (local/'applied.json').write_text(json.dumps({'built_at':build['built_at']+1000}));(folder/'expect-rejected').write_text('x')
+   process=subprocess.run([str(EXE),'--local-build-watch-test',str(folder)],timeout=30,creationflags=PY_NO_WINDOW)
+   result=json.loads((folder/'watch-result.json').read_text());self.assertEqual(process.returncode,0,result);self.assertTrue(result['rejected'])
    self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(),build['previous_sha256'])
  def test_unsigned_or_forged_descriptor_keeps_current_executable(self):
   def attempt(name,mutate):
