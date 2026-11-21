@@ -87,6 +87,11 @@ inline const std::vector<SettingDef>& settingRegistry(){
   action("server",L"서버 세부 설정",L"서버를 바꾸면 현재 계정에서 로그아웃됩니다.",6,L"서버");
   text("caption_api",L"캡션 API 주소",L"캡션 생성 서버 주소",6,L"서버");
   text("node_overrides",L"노드 덮어쓰기 (JSON)",L"고급 사용자용. 잘못 입력하면 생성이 실패할 수 있습니다.",6,L"고급");
+  toggle("sync_enabled",L"서버와 채널·이미지 동기화",L"채널, 폴더, 프롬프트와 생성 이미지를 서버 계정과 맞춰 다른 기기에서도 같은 작업을 이어갑니다.",6,L"동기화");
+  action("sync_now",L"지금 동기화",L"변경 사항을 서버와 바로 맞춥니다.",6,L"동기화");
+  action("library_import",L"서버에서 내 이미지 가져오기",L"내 계정으로 만든 이미지 중 이 기기에 없는 것을 내려받습니다.",6,L"동기화");
+  info("_sync_status",L"동기화 상태",L"",6,L"동기화");
+  info("_reset_notice",L"서버 초기화 예정",L"",6,L"동기화");
   action("reset",L"설정 초기화",L"생성 기본값을 포함한 모든 설정을 처음 상태로 되돌립니다.",6,L"초기화");
   info("_about",L"White Studio",L"라이선스 저작권 copyright license 모든 권리 버전 version 정보 about",6,L"정보 및 라이선스");
   return r;}();

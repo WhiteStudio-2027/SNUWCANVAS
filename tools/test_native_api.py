@@ -49,9 +49,9 @@ def main():
             except Exception as exc:errors.append(str(exc));self.send_error(500)
         def stream(self,value):self.send((json.dumps(value)+"\n").encode(),"application/x-ndjson")
         def do_GET(self):
-            calls.append(self.path)
+            calls.append(self.path.split('?')[0])
             if self.headers.get('X-API-Key')!='native-test-key':errors.append('missing key')
-            if self.path=='/jobs/generation-test/events':
+            if self.path.split('?')[0]=='/jobs/generation-test/events':
                 self.send_response(200);self.send_header('Content-Type','application/x-ndjson');self.end_headers()
                 first={'state':'running','completed':1,'count':2,'results':[{'image_url':'/images/1','seed':1}]}
                 # A real open stream: completion is withheld until image 1 was saved.
@@ -63,11 +63,11 @@ def main():
                 self.wfile.write(body);self.wfile.flush()
                 batch_completed.set()
                 self.wfile.write((json.dumps({'state':'completed','completed':2,'count':2,'results':[{'image_url':'/images/1','seed':1},{'image_url':'/images/2','seed':2}]})+'\n').encode());self.wfile.flush()
-            elif self.path=='/jobs/editing-test/events':self.stream({'state':'completed','completed':1,'count':1,'results':[{'image_url':'/images/edit','version':1}]})
-            elif self.path=='/sessions/edit-session/history':self.send({'current_version':1,'versions':[{'version':1,'parent':0,'image_url':'/images/edit'}]})
-            elif self.path.startswith('/images/'):
+            elif self.path.split('?')[0]=='/jobs/editing-test/events':self.stream({'state':'completed','completed':1,'count':1,'results':[{'image_url':'/images/edit','version':1}]})
+            elif self.path.split('?')[0]=='/sessions/edit-session/history':self.send({'current_version':1,'versions':[{'version':1,'parent':0,'image_url':'/images/edit'}]})
+            elif self.path.split('?')[0].startswith('/images/'):
                 self.send(png.getvalue(),'image/png')
-                if self.path=='/images/1':
+                if self.path.split('?')[0]=='/images/1':
                     if batch_completed.is_set():errors.append('First image downloaded only after terminal frame')
                     # Wait for the native client to finish saving, not only request the PNG.
                     import time

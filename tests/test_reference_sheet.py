@@ -28,15 +28,15 @@ class ReferenceSheetTests(unittest.TestCase):
     try:self.wfile.write(body)
     except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):pass
    def do_GET(self):
-    calls.append(('GET',self.path))
-    if self.path=='/sheet-image':
+    calls.append(('GET',self.path.split('?')[0]))
+    if self.path.split('?')[0]=='/sheet-image':
      self.send_response(200);self.send_header('Content-Type','image/png');self.send_header('Content-Length',str(len(image)));self.end_headers();self.wfile.write(image)
-    elif self.path.startswith('/jobs/'):
-     job=self.path.split('/')[2];value={'id':job,'state':'completed','count':1,'completed':1,'results':[{'image_url':'/sheet-image','entity_snapshot_verified':True,'seed':123}]}
-     if self.path.endswith('/events'):
+    elif self.path.split('?')[0].startswith('/jobs/'):
+     job=self.path.split('?')[0].split('/')[2];value={'id':job,'state':'completed','count':1,'completed':1,'results':[{'image_url':'/sheet-image','entity_snapshot_verified':True,'seed':123}]}
+     if self.path.split('?')[0].endswith('/events'):
       body=(json.dumps(value)+'\n').encode();self.send_response(200);self.send_header('Content-Type','application/x-ndjson');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
      else:self.send(value)
-    elif self.path.endswith('d'*32):self.send({'id':'d'*32,'name':'Style Test','kind':'style','content_version':'e'*64,'pipeline':'sdxl'})
+    elif self.path.split('?')[0].endswith('d'*32):self.send({'id':'d'*32,'name':'Style Test','kind':'style','content_version':'e'*64,'pipeline':'sdxl'})
     else:time.sleep(.12);self.send({'id':profile,'name':'Sheet Character','kind':'character','content_version':'c'*64,'pipeline':'sdxl'})
    def do_POST(self):
     calls.append(('POST',self.path));raw=self.rfile.read(int(self.headers.get('Content-Length',0)))

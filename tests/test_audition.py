@@ -22,12 +22,12 @@ class AuditionTests(unittest.TestCase):
    def do_POST(self):
     calls.append(('POST',self.path));self.rfile.read(int(self.headers.get('Content-Length',0)));self.send({'id':job})
    def do_GET(self):
-    calls.append(('GET',self.path))
-    if self.path.endswith('/events'):
+    calls.append(('GET',self.path.split('?')[0]))
+    if self.path.split('?')[0].endswith('/events'):
      payload={'id':job,'state':'completed','count':1,'completed':1,'results':[{'image_url':'/image','seed':123}]}
      self.send((json.dumps(payload)+'\n').encode(),'application/x-ndjson')
-    elif self.path=='/image':self.send(image,'image/png')
-    elif self.path=='/jobs/'+job:self.send({'id':job})
+    elif self.path.split('?')[0]=='/image':self.send(image,'image/png')
+    elif self.path.split('?')[0]=='/jobs/'+job:self.send({'id':job})
     else:self.send_error(404)
   server=ThreadingHTTPServer(('127.0.0.1',0),Handler);thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
   try:
