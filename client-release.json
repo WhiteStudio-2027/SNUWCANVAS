@@ -1,8 +1,8 @@
 {
-  "version": "v0.3.0",
+  "version": "v0.3.2",
   "min_client_version": "v0.3.0",
-  "sha256": "f993c61415d1a5f4a23727e145141a80f57dff13cba878a0e5a38421325d401b",
-  "size": 38316883,
-  "notes": "SNUWCANVAS 클라이언트 업데이트",
-  "release_epoch": 2
+  "release_epoch": 2,
+  "sha256": "7f49d3a6d8d9ad01508f4033279c0fdab0344a895ce90eda6a1b12739e1f8084",
+  "size": 38546628,
+  "notes": "SNUWCANVAS 클라이언트 업데이트"
 }
