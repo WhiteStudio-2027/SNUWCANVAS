@@ -84,6 +84,7 @@ void featureIcon(Rect r,int kind,unsigned tint){
   case 48:path({.84f,.5f,.8f,.3f,.64f,.16f,.44f,.14f,.26f,.26f,.16f,.44f,.2f,.66f,.36f,.82f,.58f,.86f,.78f,.76f},false);path({.92f,.26f,.84f,.5f,.62f,.4f},false);break; // reset: circular arrow
   case 49:path({.5f,.1f,.92f,.86f,.08f,.86f},true);line(.5f,.38f,.5f,.62f);circle(.5f,.74f,.03f);break; // warning
   case 50:line(.2f,.2f,.8f,.8f);line(.8f,.2f,.2f,.8f);break; // close
+  case 51:box(.08f,.3f,.92f,.84f);path({.32f,.3f,.38f,.16f,.62f,.16f,.68f,.3f},false);circle(.5f,.57f,.2f);break; // camera
  }
 }
 int navigationGlyph(int id)const{switch(id){case 0:return 20;case 1:return 21;case 2:return 22;case 3:return 9;case 4:return 2;case 5:return 23;case 7:return 29;case 8:return 30;case 9:return 27;case 11:return 15;case 14:return 28;case 15:return 31;case 16:return 24;case 17:return 25;case 18:return 26;default:return 10;}}
